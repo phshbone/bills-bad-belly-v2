@@ -933,6 +933,94 @@ h1 {
   .header-mascot { width: 58px !important; }
 }
 
+
+/* ---------- BUILD 7.3 PERSISTENT MODE PILL ---------- */
+.screen-title {
+  position: relative;
+  padding-right: 104px;
+  min-height: 42px;
+}
+.mode-status-pill {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 6;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(184,154,192,.26);
+  border-radius: 999px;
+  color: var(--cream);
+  background: linear-gradient(145deg, rgba(48,57,70,.98), rgba(27,32,39,.96));
+  box-shadow: 0 10px 22px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,.08);
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .01em;
+  line-height: 1;
+  transition: border-color .28s ease, box-shadow .28s ease, color .28s ease, transform .28s ease;
+}
+.mode-status-pill:active { transform: scale(.97); }
+.mode-status-pill.normal {
+  border-color: rgba(126, 142, 131, .42);
+  box-shadow: 0 10px 22px rgba(0,0,0,.28), 0 0 12px rgba(126,142,131,.08), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.mode-status-pill.flare {
+  border-color: rgba(232,128,54,.36);
+  box-shadow: 0 10px 22px rgba(0,0,0,.28), 0 0 18px rgba(197,138,233,.2), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.mode-flame {
+  width: 14px;
+  height: 18px;
+  display: inline-block;
+  flex: 0 0 14px;
+  border-radius: 70% 55% 70% 55%;
+  transform: rotate(45deg);
+  transition: background .28s ease, box-shadow .28s ease;
+}
+.mode-status-pill.normal .mode-flame {
+  background:
+    radial-gradient(circle at 63% 70%, rgba(216, 226, 212, .9) 0 13%, transparent 18%),
+    linear-gradient(145deg, #9fb19f 12%, #6f846f 58%, #4a5b51 100%);
+  box-shadow: 0 0 8px rgba(126,142,131,.18);
+}
+.mode-status-pill.flare .mode-flame {
+  background:
+    radial-gradient(circle at 66% 68%, rgba(255,154,76,.92) 0 16%, transparent 21%),
+    linear-gradient(145deg, #c58ae9 10%, #7d5f86 55%, #e88036 100%);
+  box-shadow: 0 0 11px rgba(197,138,233,.45), 0 0 7px rgba(232,128,54,.18);
+}
+.mode-changing .mode-status-pill,
+.mode-changing .screen-card,
+.mode-changing .food-result-card .rating-pill {
+  transition-duration: .28s;
+}
+.mode-info-popover {
+  position: absolute;
+  top: 42px;
+  right: 0;
+  z-index: 10;
+  width: min(265px, calc(100vw - 56px));
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(184,154,192,.28);
+  color: var(--cream);
+  background: rgba(27,32,39,.98);
+  box-shadow: 0 18px 38px rgba(0,0,0,.48);
+  backdrop-filter: blur(14px);
+  font-size: .84rem;
+}
+.mode-info-popover strong { display: block; margin-bottom: 5px; color: var(--purple-light); }
+.mode-info-popover p { margin: 0; color: var(--muted); line-height: 1.35; }
+.mode-info-popover p + p { margin-top: 8px; color: #d9cfe0; }
+.flare-active-pill { display: none !important; }
+@media (max-width: 360px) {
+  .screen-title { padding-right: 86px; }
+  .mode-status-pill { padding: 7px 8px; font-size: .7rem; }
+  .mode-flame { width: 12px; height: 16px; flex-basis: 12px; }
+}
+
   </style>
 </head>
 <body>
@@ -984,7 +1072,8 @@ const state = {
   nutritionText: '',
   selectedFoodId: '',
   cupboardItems: JSON.parse(localStorage.getItem('bbbCupboardItems') || '[]'),
-  foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]')
+  foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]'),
+  modeInfoOpen: false
 };
 
 function svg(paths) {
@@ -1347,9 +1436,35 @@ function resultCard(label, foods) {
   `;
 }
 
+function modeStatusPill() {
+  const isFlare = state.mode === 'Flare';
+  const label = isFlare ? 'Flare' : 'Normal';
+  const infoMain = isFlare
+    ? 'More conservative food guidance for times when your digestive system is more sensitive.'
+    : 'Standard food guidance based on your everyday tolerance.';
+  const infoNote = isFlare
+    ? 'Some foods will be rated more conservatively during a flare.'
+    : 'Food ratings may change when you switch modes.';
+
+  return `
+    <button class="mode-status-pill ${isFlare ? 'flare' : 'normal'}" data-action="mode-info" type="button" aria-label="${escapeHtml(label)} mode information">
+      <span class="mode-flame" aria-hidden="true"></span>
+      <span>${escapeHtml(label)}</span>
+    </button>
+    ${state.modeInfoOpen ? `
+      <div class="mode-info-popover" role="status">
+        <strong>${escapeHtml(label)} Mode</strong>
+        <p>${escapeHtml(infoMain)}</p>
+        <p>${escapeHtml(infoNote)}</p>
+      </div>
+    ` : ''}
+  `;
+}
+
 function screenTitle(title, subtitle) {
   return `
     <div class="screen-title">
+      ${modeStatusPill()}
       <p>${escapeHtml(title)}</p>
       <h2>${escapeHtml(subtitle)}</h2>
     </div>
@@ -1495,8 +1610,6 @@ function flareScreen() {
   return `
     <div class="screen-content">
       ${screenTitle('Flare', 'Normal and flare-mode food guidance.')}
-      ${state.mode === 'Flare' ? `<div class="flare-active-pill"><span class="purple-flame" aria-hidden="true"></span> Flare Mode Active</div>` : ''}
-
       <div class="mode-toggle">
         ${['Normal', 'Flare'].map(item => `
           <button class="${state.mode === item ? 'selected' : ''}" data-mode="${item}" type="button">${item} Mode</button>
@@ -1678,6 +1791,20 @@ function trendsScreen() {
   `;
 }
 
+function setMode(nextMode) {
+  if (!nextMode || state.mode === nextMode) {
+    state.modeInfoOpen = false;
+    render();
+    return;
+  }
+  state.mode = nextMode;
+  state.modeInfoOpen = false;
+  document.body.classList.add('mode-changing');
+  render();
+  window.setTimeout(() => document.body.classList.remove('mode-changing'), 320);
+}
+
+
 function render() {
   const screen = document.getElementById('screen');
   document.body.classList.toggle('flare-active', state.mode === 'Flare');
@@ -1715,6 +1842,7 @@ function bindEvents() {
       state.activeTab = btn.dataset.tab;
       state.meScreen = 'main';
       state.savedNotice = '';
+      state.modeInfoOpen = false;
       render();
     };
   });
@@ -1728,8 +1856,7 @@ function bindEvents() {
 
   document.querySelectorAll('[data-mode]').forEach(btn => {
     btn.onclick = () => {
-      state.mode = btn.dataset.mode;
-      render();
+      setMode(btn.dataset.mode);
     };
   });
 
