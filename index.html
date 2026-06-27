@@ -781,6 +781,83 @@ h1 {
   .clear-search { width: 100%; }
 }
 
+
+/* ---------- BUILD 7.1 CARD ACTIONS + FLARE STATE ---------- */
+.food-result-card {
+  display: grid;
+  gap: 12px;
+}
+
+.food-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+}
+
+.compact-action {
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 13px;
+  font-size: .84rem;
+  font-weight: 800;
+}
+
+.flare-active .screen-card {
+  border-color: rgba(197, 138, 233, .58);
+  background:
+    radial-gradient(circle at 92% 8%, rgba(232, 128, 54, .12), transparent 24%),
+    radial-gradient(circle at 8% 15%, rgba(197, 138, 233, .16), transparent 28%),
+    rgba(30, 24, 37, 0.86);
+  box-shadow:
+    0 0 0 1px rgba(197,138,233,.22),
+    0 0 28px rgba(197,138,233,.24),
+    0 20px 50px var(--shadow);
+}
+
+.flare-active .screen-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: 28px;
+  background:
+    linear-gradient(125deg, transparent 0 68%, rgba(232,128,54,.22) 73%, transparent 78%),
+    linear-gradient(38deg, transparent 0 76%, rgba(255,165,82,.16) 80%, transparent 86%);
+  opacity: .85;
+}
+
+.flare-active-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  padding: 8px 12px;
+  border-radius: 999px;
+  color: #f4d7ff;
+  font-size: .84rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  background: rgba(82, 49, 93, .72);
+  border: 1px solid rgba(232,128,54,.32);
+  box-shadow: 0 0 18px rgba(197,138,233,.18);
+}
+
+.purple-flame {
+  width: 14px;
+  height: 18px;
+  display: inline-block;
+  border-radius: 70% 55% 70% 55%;
+  transform: rotate(45deg);
+  background:
+    radial-gradient(circle at 66% 68%, rgba(255,154,76,.9) 0 16%, transparent 20%),
+    linear-gradient(145deg, #c58ae9 12%, #7d5f86 58%, #e88036 100%);
+  box-shadow: 0 0 10px rgba(197,138,233,.45);
+}
+
+@media (max-width: 360px) {
+  .food-result-actions { grid-template-columns: 1fr; }
+}
+
   </style>
 </head>
 <body>
@@ -831,6 +908,7 @@ const state = {
   ingredientText: '',
   nutritionText: '',
   selectedFoodId: '',
+  cupboardItems: JSON.parse(localStorage.getItem('bbbCupboardItems') || '[]'),
   foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]')
 };
 
@@ -1068,8 +1146,9 @@ function alternativesText(food) {
 function foodResultButton(item) {
   const food = item.food || item;
   const reason = item.reason || '';
+  const inCupboard = state.cupboardItems.some(entry => entry.id === food.id);
   return `
-    <button class="food-result-card" data-food-id="${escapeHtml(food.id)}" type="button">
+    <article class="food-result-card">
       <div class="food-result-top">
         <div>
           <strong>${escapeHtml(food.brand ? food.brand + ' ' + food.name : food.name)}</strong>
@@ -1078,7 +1157,12 @@ function foodResultButton(item) {
         </div>
         ${ratingPill(ratingForCurrentMode(food))}
       </div>
-    </button>
+      <div class="food-result-actions">
+        <button class="secondary-action compact-action" data-action="add-cupboard" data-food-id="${escapeHtml(food.id)}" type="button">${inCupboard ? 'In Cupboard' : 'Cupboard'}</button>
+        <button class="primary-action compact-action" data-action="log-food" data-food-id="${escapeHtml(food.id)}" type="button">Ate It</button>
+        <button class="secondary-action compact-action" data-action="view-food" data-food-id="${escapeHtml(food.id)}" type="button">Details</button>
+      </div>
+    </article>
   `;
 }
 
@@ -1137,8 +1221,8 @@ function foodCardScreen(food) {
         </div>
         <div class="food-meta">Mode: ${escapeHtml(state.mode)} • Found: ${escapeHtml(food.found || 'Unknown')} • Photo verified: ${escapeHtml(food.photo || 'No')}</div>
         <div class="food-card-actions">
-          <button class="primary-action" data-action="log-food" data-food-id="${escapeHtml(food.id)}" type="button">Log Food</button>
-          <button class="secondary-action" data-action="save-food-note" type="button">Add Note</button>
+          <button class="secondary-action" data-action="add-cupboard" data-food-id="${escapeHtml(food.id)}" type="button">Cupboard</button>
+          <button class="primary-action" data-action="log-food" data-food-id="${escapeHtml(food.id)}" type="button">Ate It</button>
         </div>
       </section>
       ${state.savedNotice ? `<p class="save-notice">${escapeHtml(state.savedNotice)}</p>` : ''}
@@ -1336,6 +1420,7 @@ function flareScreen() {
   return `
     <div class="screen-content">
       ${screenTitle('Flare', 'Normal and flare-mode food guidance.')}
+      ${state.mode === 'Flare' ? `<div class="flare-active-pill"><span class="purple-flame" aria-hidden="true"></span> Flare Mode Active</div>` : ''}
 
       <div class="mode-toggle">
         ${['Normal', 'Flare'].map(item => `
@@ -1520,6 +1605,7 @@ function trendsScreen() {
 
 function render() {
   const screen = document.getElementById('screen');
+  document.body.classList.toggle('flare-active', state.mode === 'Flare');
 
   if (state.activeTab === 'home') screen.innerHTML = homeScreen();
   if (state.activeTab === 'scan') screen.innerHTML = scanScreen();
@@ -1629,14 +1715,26 @@ function bindEvents() {
       if (action === 'quick-search') { state.foodQuery = btn.dataset.query || ''; state.selectedFoodId = ''; }
       if (action === 'back-to-results') { document.getElementById('results-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (action === 'back-to-scan') { state.selectedFoodId = ''; }
-      if (btn.dataset.foodId) { state.selectedFoodId = btn.dataset.foodId; state.activeTab = 'scan'; }
+      if (action === 'view-food') { state.selectedFoodId = btn.dataset.foodId; state.activeTab = 'scan'; }
+      if (btn.dataset.foodId && !action) { state.selectedFoodId = btn.dataset.foodId; state.activeTab = 'scan'; }
+      if (action === 'add-cupboard') {
+        const food = findFoodById(btn.dataset.foodId);
+        if (food && !state.cupboardItems.some(entry => entry.id === food.id)) {
+          state.cupboardItems.unshift({ id: food.id, name: food.name, brand: food.brand, rating: getRatingLabel(ratingForCurrentMode(food)), mode: state.mode, timestamp: new Date().toISOString() });
+          state.cupboardItems = state.cupboardItems.slice(0, 100);
+          localStorage.setItem('bbbCupboardItems', JSON.stringify(state.cupboardItems));
+          state.savedNotice = 'Added to Cupboard.';
+        } else if (food) {
+          state.savedNotice = 'Already in Cupboard.';
+        }
+      }
       if (action === 'log-food') {
         const food = findFoodById(btn.dataset.foodId);
         if (food) {
           state.foodLogs.unshift({ id: food.id, name: food.name, brand: food.brand, rating: getRatingLabel(ratingForCurrentMode(food)), mode: state.mode, timestamp: new Date().toISOString() });
           state.foodLogs = state.foodLogs.slice(0, 50);
           localStorage.setItem('bbbFoodLogs', JSON.stringify(state.foodLogs));
-          state.savedNotice = 'Food logged locally.';
+          state.savedNotice = 'Ate It logged locally.';
         }
       }
       if (action === 'save-food-note') { state.savedNotice = 'Personal food notes come next.'; }
