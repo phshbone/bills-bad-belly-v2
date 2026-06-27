@@ -1028,6 +1028,80 @@ h1 {
   .mode-flame { width: 12px; height: 16px; flex-basis: 12px; }
 }
 
+
+/* ---------- BUILD 7.5 EXPLANATION + GUT CHECK POLISH ---------- */
+.info-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 118px;
+  transform: translateX(-50%);
+  z-index: 80;
+  width: min(calc(100% - 36px), 390px);
+  padding: 13px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(184,154,192,.30);
+  background: rgba(27,32,39,.98);
+  box-shadow: 0 18px 42px rgba(0,0,0,.54);
+  color: var(--cream);
+  backdrop-filter: blur(16px);
+}
+.info-toast strong { display:block; color: var(--purple-light); margin-bottom: 5px; }
+.info-toast p { margin: 0; color: var(--muted); line-height: 1.38; font-size: .88rem; }
+.info-toast button {
+  position: absolute;
+  top: 8px;
+  right: 9px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid rgba(184,154,192,.28);
+  background: rgba(17,21,26,.55);
+  color: var(--cream);
+}
+.rating-pill { border: 0; cursor: pointer; }
+.rating-pill:focus-visible, .info-dot:focus-visible, .mode-status-pill:focus-visible { outline: 2px solid rgba(197,138,233,.7); outline-offset: 2px; }
+.info-dot {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(184,154,192,.28);
+  background: rgba(17,21,26,.5);
+  color: var(--purple-light);
+  font-weight: 900;
+  display: inline-grid;
+  place-items: center;
+}
+.gut-check-card {
+  position: relative;
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(184,154,192,.24);
+  background:
+    radial-gradient(circle at 88% 12%, rgba(197,138,233,.12), transparent 30%),
+    linear-gradient(145deg, rgba(48,57,70,.96), rgba(27,32,39,.95));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+.gut-check-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.gut-check-card h3 { margin: 0; color: var(--purple-light); font-size: 1.05rem; }
+.gut-check-card p { margin: 4px 0 0; color: var(--muted); line-height: 1.35; }
+.gut-check-card .gut-actions { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; }
+.gut-check-complete { color: #cfe9d6; font-size: .86rem; font-weight: 800; }
+.flare-active .screen-card { animation: flareReminderPulse 15s ease-in-out infinite; }
+@keyframes flareReminderPulse {
+  0%, 78%, 100% { box-shadow: 0 20px 50px var(--shadow); }
+  82% { box-shadow: 0 20px 50px var(--shadow), 0 0 0 1px rgba(197,138,233,.18), 0 0 32px rgba(197,138,233,.20), 0 0 18px rgba(232,128,54,.08); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flare-active .screen-card { animation: none; }
+}
+
   </style>
 </head>
 <body>
@@ -1080,7 +1154,9 @@ const state = {
   selectedFoodId: '',
   cupboardItems: JSON.parse(localStorage.getItem('bbbCupboardItems') || '[]'),
   foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]'),
-  modeInfoOpen: false
+  modeInfoOpen: false,
+  infoTopic: '',
+  gutCheckDate: localStorage.getItem('bbbGutCheckDate') || ''
 };
 
 function svg(paths) {
@@ -1152,7 +1228,8 @@ function getRatingLabel(value) {
 
 function ratingPill(value) {
   const key = getRatingKey(value);
-  return `<span class="rating-pill rating-${key}">${getRatingLabel(value)}</span>`;
+  const label = getRatingLabel(value);
+  return `<button class="rating-pill rating-${key}" data-action="rating-info" data-rating="${key}" type="button" aria-label="${label} rating explanation">${label}</button>`;
 }
 
 function compactText(value) {
@@ -1459,6 +1536,45 @@ function resultCard(label, foods) {
   `;
 }
 
+function infoToast() {
+  if (!state.infoTopic) return '';
+  const topics = {
+    'rating-good': { title: 'Good', text: 'Usually easier on the belly. Still pay attention to portion size, preparation, and your own history.' },
+    'rating-eh': { title: 'Eh', text: 'Use caution. This may depend on portion, ingredients, preparation, or whether Flare Mode is on.' },
+    'rating-ugly': { title: 'Ugly', text: 'More likely to bother the belly, especially during Flare Mode. Consider a simpler or gentler choice.' },
+    'gut-check': { title: 'Why Gut Check looks back', text: 'Gut Check combines how you feel today with a quick look back at yesterday, helping Bill\'s Bad Belly build a more complete picture of food, symptoms, and bathroom activity over time. Your best estimate is enough.' }
+  };
+  const item = topics[state.infoTopic];
+  if (!item) return '';
+  return `
+    <div class="info-toast" role="status">
+      <button data-action="close-info" type="button" aria-label="Close explanation">×</button>
+      <strong>${escapeHtml(item.title)}</strong>
+      <p>${escapeHtml(item.text)}</p>
+    </div>
+  `;
+}
+
+function gutCheckCard() {
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const doneToday = state.gutCheckDate === todayKey;
+  return `
+    <section class="gut-check-card">
+      <div class="gut-check-head">
+        <div>
+          <h3>Gut Check</h3>
+          <p>${doneToday ? "You already checked in today. Update it if anything changed." : "Start with yesterday’s bathroom activity, then set today’s belly baseline."}</p>
+        </div>
+        <button class="info-dot" data-action="gut-info" type="button" aria-label="Gut Check explanation">i</button>
+      </div>
+      <div class="gut-actions">
+        <button class="primary-action" data-action="daily-log" type="button">${doneToday ? 'Update Gut Check' : 'Start Gut Check'}</button>
+        ${doneToday ? '<span class="gut-check-complete">Done today</span>' : '<span class="small-muted">~60 sec</span>'}
+      </div>
+    </section>
+  `;
+}
+
 function modeStatusPill() {
   const isFlare = state.mode === 'Flare';
   const label = isFlare ? 'Flare' : 'Normal';
@@ -1488,6 +1604,7 @@ function screenTitle(title, subtitle) {
   return `
     <div class="screen-title">
       ${modeStatusPill()}
+      ${infoToast()}
       <p>${escapeHtml(title)}</p>
       <h2>${escapeHtml(subtitle)}</h2>
     </div>
@@ -1538,7 +1655,9 @@ function homeScreen() {
 
   return `
     <div class="screen-content">
-      ${screenTitle('Home', 'Can I safely eat this right now?')}
+      ${screenTitle('BB', 'Today starts with a Gut Check.')}
+
+      ${gutCheckCard()}
 
       <div class="belly-meter">
         <span class="icon">${icons.gauge}</span>
@@ -1557,7 +1676,7 @@ function homeScreen() {
 
       <div class="grid two">
         ${actionCard(icons.camera, 'Scan Food', 'Check a meal, snack, label, or menu.', 'scan')}
-        ${actionCard(icons.clipboard, 'Daily Log', 'Quick symptom and food note.', 'daily-log')}
+        ${actionCard(icons.clipboard, 'Gut Check', "Quick daily Crohn's check-in.", 'daily-log')}
         ${actionCard(icons.zap, 'Flare Help', 'Switch to stricter guidance.', 'flare')}
         ${actionCard(icons.calendar, 'Trends', 'Future symptom patterns.', 'trends')}
       </div>
@@ -1676,7 +1795,7 @@ function meScreen() {
 
       <div class="list-stack">
         ${listRow(icons.apple, 'My Foods', 'my-foods')}
-        ${listRow(icons.clipboard, 'Daily Log', 'daily-log')}
+        ${listRow(icons.clipboard, 'Gut Check', 'daily-log')}
         ${listRow(icons.notes, 'Notes', 'notes')}
         ${listRow(icons.history, 'History', 'history')}
         ${listRow(icons.settings, 'Settings', 'settings')}
@@ -1693,20 +1812,21 @@ function dailyLogScreen() {
   return `
     <div class="screen-content">
       ${backButton()}
-      ${screenTitle('Me → Daily Log', "10-second Crohn's check-in.")}
+      ${screenTitle('Me → Gut Check', "Yesterday plus today, in about a minute.")}
 
-      ${logSection('Belly Status', tapGroup(['Good', 'Ehhh', 'Rough', 'Flare'], state.bellyStatus, 'bellyStatus'))}
-
-      ${logSection(`Pain Level: ${state.painLevel}`, `
-        <input class="pain-slider" id="painLevel" type="range" min="0" max="10" value="${state.painLevel}" />
-      `)}
-
-      ${logSection('Bathroom Trips', `
+      ${logSection('Looking Back at Yesterday', `
+        <p class="small-muted">Approximately how many bathroom trips yesterday?</p>
         <div class="counter-control">
           <button type="button" data-action="bathroom-minus"><span>${icons.minus}</span></button>
           <strong>${state.bathroomTrips}</strong>
           <button type="button" data-action="bathroom-plus"><span>${icons.plus}</span></button>
         </div>
+      `)}
+
+      ${logSection('How Are You Feeling Today?', tapGroup(['Good', 'Ehhh', 'Rough', 'Flare'], state.bellyStatus, 'bellyStatus'))}
+
+      ${logSection(`Pain Level: ${state.painLevel}`, `
+        <input class="pain-slider" id="painLevel" type="range" min="0" max="10" value="${state.painLevel}" />
       `)}
 
       ${logSection('Urgency', tapGroup(['None', 'Mild', 'Moderate', 'Severe'], state.urgency, 'urgency'))}
@@ -1715,7 +1835,7 @@ function dailyLogScreen() {
         <textarea class="notes-box" id="notes" placeholder="Anything worth remembering?">${escapeHtml(state.notes)}</textarea>
       `)}
 
-      <button class="primary-action full-width" data-action="save-log" type="button">Save Log</button>
+      <button class="primary-action full-width" data-action="save-log" type="button">Save Gut Check</button>
       ${state.savedNotice ? `<p class="save-notice">${escapeHtml(state.savedNotice)}</p>` : ''}
 
       <div class="recent-logs">
@@ -1868,6 +1988,7 @@ function bindEvents() {
       state.meScreen = 'main';
       state.savedNotice = '';
       state.modeInfoOpen = false;
+      state.infoTopic = '';
       render();
     };
   });
@@ -1925,7 +2046,10 @@ function bindEvents() {
       captureInputs();
       const action = btn.dataset.action;
 
-      if (action === 'mode-info') { state.modeInfoOpen = !state.modeInfoOpen; render(); return; }
+      if (action === 'mode-info') { state.modeInfoOpen = !state.modeInfoOpen; state.infoTopic = ''; render(); return; }
+      if (action === 'rating-info') { state.infoTopic = state.infoTopic === 'rating-' + btn.dataset.rating ? '' : 'rating-' + btn.dataset.rating; state.modeInfoOpen = false; render(); return; }
+      if (action === 'gut-info') { state.infoTopic = state.infoTopic === 'gut-check' ? '' : 'gut-check'; state.modeInfoOpen = false; render(); return; }
+      if (action === 'close-info') { state.infoTopic = ''; render(); return; }
       if (action === 'scan') { state.activeTab = 'scan'; state.selectedFoodId = ''; }
       if (action === 'flare') state.activeTab = 'flare';
       if (action === 'daily-log') { state.activeTab = 'me'; state.meScreen = 'daily-log'; }
@@ -1937,7 +2061,11 @@ function bindEvents() {
       if (action === 'me-main') { state.meScreen = 'main'; state.savedNotice = ''; }
       if (action === 'bathroom-minus') state.bathroomTrips = Math.max(0, state.bathroomTrips - 1);
       if (action === 'bathroom-plus') state.bathroomTrips += 1;
-      if (action === 'save-log') state.savedNotice = 'Log saved locally for this session.';
+      if (action === 'save-log') {
+        state.savedNotice = 'Gut Check saved locally for today.';
+        state.gutCheckDate = new Date().toISOString().slice(0, 10);
+        localStorage.setItem('bbbGutCheckDate', state.gutCheckDate);
+      }
       if (action === 'food-search') { state.selectedFoodId = ''; }
       if (action === 'clear-food-search') { state.foodQuery = ''; state.selectedFoodId = ''; }
       if (action === 'quick-search') { state.foodQuery = btn.dataset.query || ''; state.selectedFoodId = ''; }
