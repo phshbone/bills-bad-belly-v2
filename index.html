@@ -858,6 +858,81 @@ h1 {
   .food-result-actions { grid-template-columns: 1fr; }
 }
 
+  
+
+/* ---------- BUILD 7.2 POLISH: TITLE, BILL, READABLE FLARE ---------- */
+/* Match title to the darker dusty-purple BB tab tone. */
+.brand-title-wrap h1,
+.brand-title {
+  color: #9b6fa6 !important;
+  text-shadow:
+    0 1px 0 #5e4867,
+    0 3px 0 #33213c,
+    0 10px 18px rgba(0,0,0,.54),
+    0 0 16px rgba(155,111,166,.22) !important;
+}
+
+/* Keep Bill visible instead of cropping the head. */
+.header-mascot-wrap {
+  width: 60px !important;
+  height: 82px !important;
+  flex-basis: 60px !important;
+  overflow: visible !important;
+  align-items: flex-end !important;
+}
+.header-mascot {
+  width: 64px !important;
+  transform: translateY(0) !important;
+}
+
+/* Put flare/ember effects behind the cards and text. */
+.screen-card {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+.screen-content {
+  position: relative;
+  z-index: 2;
+}
+.flare-active .screen-card {
+  background:
+    radial-gradient(circle at 8% 12%, rgba(197, 138, 233, .16), transparent 28%),
+    rgba(30, 24, 37, 0.88);
+}
+.flare-active .screen-card::before {
+  z-index: 0;
+  inset: -8px;
+  border-radius: 32px;
+  background:
+    radial-gradient(ellipse at 4% 78%, rgba(232,128,54,.14), transparent 34%),
+    radial-gradient(ellipse at 98% 92%, rgba(255,165,82,.11), transparent 30%),
+    linear-gradient(125deg, transparent 0 72%, rgba(232,128,54,.12) 77%, transparent 84%),
+    linear-gradient(38deg, transparent 0 78%, rgba(255,165,82,.09) 84%, transparent 90%);
+  opacity: .72;
+}
+.flare-active .screen-card > * {
+  position: relative;
+  z-index: 1;
+}
+.flare-active .food-result-card,
+.flare-active .category-group,
+.flare-active .input-card,
+.flare-active .result-card,
+.flare-active .food-panel,
+.flare-active .action-card,
+.flare-active .list-row,
+.flare-active .log-section,
+.flare-active .belly-meter {
+  position: relative;
+  z-index: 3;
+}
+
+@media (max-width: 360px) {
+  .header-mascot-wrap { width: 54px !important; flex-basis: 54px !important; height: 76px !important; }
+  .header-mascot { width: 58px !important; }
+}
+
   </style>
 </head>
 <body>
