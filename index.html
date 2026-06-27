@@ -37,7 +37,7 @@ button {
   width: min(100%, 430px);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 22px 16px 92px;
+  padding: 22px 16px 152px;
   position: relative;
 }
 
@@ -539,6 +539,71 @@ h1 {
 .food-card-section h3 { margin: 0; color: var(--purple-light); }
 .food-card-section p { margin: 0; color: var(--cream); line-height: 1.4; }
 
+.results-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+.results-summary strong { color: var(--purple-light); }
+
+.results-heading {
+  margin: 4px 0 -2px;
+  color: var(--purple-light);
+  font-size: .95rem;
+  font-weight: 900;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+}
+
+.category-group {
+  border: 1px solid rgba(184, 154, 192, 0.22);
+  background: linear-gradient(145deg, rgba(48, 57, 70, 0.88), rgba(27, 32, 39, 0.9));
+  border-radius: 18px;
+  overflow: hidden;
+}
+
+.category-group summary {
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px;
+  cursor: pointer;
+  color: var(--cream);
+  font-weight: 900;
+}
+
+.category-group summary span {
+  color: var(--purple-light);
+  font-weight: 800;
+  font-size: .86rem;
+}
+
+.category-group-body {
+  display: grid;
+  gap: 10px;
+  padding: 0 12px 12px;
+}
+
+.back-to-results {
+  position: sticky;
+  bottom: 104px;
+  z-index: 5;
+  width: 100%;
+  border: 1px solid rgba(184,154,192,.34);
+  border-radius: 16px;
+  padding: 12px 14px;
+  color: var(--cream);
+  background: linear-gradient(145deg, rgba(125,95,134,.98), rgba(94,72,103,.98));
+  box-shadow: 0 12px 30px rgba(0,0,0,.38);
+}
+
+
 /* Smaller bathroom-trip counter */
 .counter-control {
   grid-template-columns: 52px 64px 52px;
@@ -639,6 +704,81 @@ h1 {
   .header-mascot { width: 66px; }
   .brand-title-wrap h1 { font-size: 1.62rem; }
   .logo-mark { width: 48px; height: 48px; flex-basis: 48px; }
+}
+
+
+/* ---------- BUILD 7 SEARCH OVERHAUL ---------- */
+.search-tools {
+  display: grid;
+  gap: 10px;
+}
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+.clear-search {
+  min-height: 46px;
+  border: 1px solid rgba(184,154,192,.28);
+  border-radius: 14px;
+  padding: 0 12px;
+  background: rgba(17,21,26,.55);
+  color: var(--cream);
+  font-weight: 800;
+}
+.search-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.35;
+}
+.search-chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.search-chip {
+  flex: 0 0 auto;
+  border: 1px solid rgba(184,154,192,.26);
+  border-radius: 999px;
+  padding: 8px 10px;
+  background: rgba(17,21,26,.55);
+  color: var(--cream);
+  font-size: .84rem;
+  font-weight: 800;
+}
+.advanced-scan summary {
+  cursor: pointer;
+  color: var(--purple-light);
+  font-weight: 900;
+}
+.advanced-scan-body {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+.result-meta-line {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: .78rem;
+  line-height: 1.3;
+}
+.match-reason {
+  color: var(--purple-light);
+  font-weight: 800;
+}
+.compact-results-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.35;
+}
+@media (max-width: 360px) {
+  .search-row { grid-template-columns: 1fr; }
+  .clear-search { width: 100%; }
 }
 
   </style>
@@ -766,24 +906,103 @@ function ratingPill(value) {
   return `<span class="rating-pill rating-${key}">${getRatingLabel(value)}</span>`;
 }
 
-function searchFoodsDatabase(query, limit = 25) {
-  const q = String(query || '').trim().toLowerCase();
-  if (!q) return [];
+function compactText(value) {
+  return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function foodSearchText(food) {
+  const base = `${food.id} ${food.brand} ${food.name} ${food.category} ${food.subcategory} ${food.notes}`;
+  const nameCat = `${food.name} ${food.category} ${food.subcategory}`.toLowerCase();
+  const aliases = [];
+  if (nameCat.includes('pasta sauce') || nameCat.includes('marinara')) aliases.push('tomato sauce marinara red sauce');
+  if (nameCat.includes('tomato') || nameCat.includes('tomatoes')) aliases.push('tomato tomatoes');
+  if (nameCat.includes('chicken broth') || nameCat.includes('bone broth')) aliases.push('broth stock soup');
+  return compactText(`${base} ${aliases.join(' ')}`);
+}
+
+function scoreFoodMatch(food, query) {
+  const q = compactText(query);
+  if (!q) return { food, score: 0, reason: '' };
+
+  const genericTerms = new Set(['a','an','and','the','of','with','food','foods','drink','drinks','meal','meals','plain','fresh','frozen','wegmans','brand']);
+  const softTerms = new Set(['sauce','soup','snack','snacks','juice','water','zero','sugar','cheese','chicken','beef','rice','milk']);
   const terms = q.split(/\s+/).filter(Boolean);
-  return BBB_FOODS.map(food => {
-    const haystack = `${food.id} ${food.brand} ${food.name} ${food.category} ${food.subcategory}`.toLowerCase();
-    let score = 0;
-    terms.forEach(term => {
-      if (haystack.includes(term)) score += 1;
-      if (String(food.name).toLowerCase().includes(term)) score += 2;
-      if (String(food.brand).toLowerCase().includes(term)) score += 1;
-    });
-    if (haystack.includes(q)) score += 3;
-    return { food, score };
-  }).filter(item => item.score > 0)
+  const specificTerms = terms.filter(term => !genericTerms.has(term) && !softTerms.has(term));
+  const usefulTerms = specificTerms.length ? specificTerms : terms.filter(term => !genericTerms.has(term));
+
+  const id = compactText(food.id);
+  const name = compactText(food.name);
+  const brand = compactText(food.brand);
+  const category = compactText(food.category);
+  const subcategory = compactText(food.subcategory);
+  const notes = compactText(food.notes);
+  const fullName = compactText(`${food.brand} ${food.name}`);
+  const text = foodSearchText(food);
+
+  const matchedTerms = terms.filter(term => text.includes(term));
+  const matchedUseful = usefulTerms.filter(term => text.includes(term));
+  const exactPhrase = name === q || fullName === q || id === q;
+  const phraseInPrimary = name.includes(q) || fullName.includes(q);
+  const phraseInSecondary = category.includes(q) || subcategory.includes(q);
+  const phraseInText = text.includes(q);
+
+  if (!matchedTerms.length && !phraseInText) return { food, score: 0, reason: '' };
+
+  // For multi-word intent searches, do not let broad words pull in unrelated products.
+  // Example: "chicken soup" should not rank every chicken product above actual soup/broth-like matches.
+  if (terms.length > 1 && usefulTerms.length && !matchedUseful.length && !phraseInText) {
+    return { food, score: 0, reason: '' };
+  }
+
+  let score = 0;
+  let reason = 'related match';
+
+  if (id === q) { score += 1600; reason = 'exact ID'; }
+  if (exactPhrase) { score += 1400; reason = 'exact food match'; }
+  if (name.startsWith(q) || fullName.startsWith(q)) { score += 1080; reason = 'starts with your search'; }
+  if (phraseInPrimary) { score += 900; reason = 'phrase in food name'; }
+  if (phraseInSecondary) { score += 620; reason = 'phrase in category'; }
+  if (phraseInText) score += 420;
+
+  const allTermsInName = terms.every(term => name.includes(term));
+  const allTermsInFullName = terms.every(term => fullName.includes(term));
+  const allTermsInCategory = terms.every(term => `${category} ${subcategory}`.includes(term));
+  const allUsefulInPrimary = usefulTerms.length && usefulTerms.every(term => `${name} ${fullName}`.includes(term));
+
+  if (allTermsInName) { score += 680; reason = 'all words in food name'; }
+  if (allTermsInFullName) { score += 620; reason = 'all words in brand/name'; }
+  if (allUsefulInPrimary) score += 420;
+  if (allTermsInCategory) score += 260;
+
+  terms.forEach((term, index) => {
+    const orderBonus = Math.max(0, 40 - index * 6);
+    if (name === term) score += 380;
+    if (name.startsWith(term)) score += 170 + orderBonus;
+    if (name.includes(term)) score += 120;
+    if (brand.includes(term)) score += 58;
+    if (subcategory.includes(term)) score += 46;
+    if (category.includes(term)) score += 34;
+    if (id.includes(term)) score += 24;
+    if (notes.includes(term)) score += 10;
+  });
+
+  // Soft demotions keep broad matches from flooding the top.
+  if (terms.length > 1 && matchedTerms.length === 1) score -= 220;
+  if (usefulTerms.length && matchedUseful.length < usefulTerms.length && !phraseInPrimary) score -= 120;
+  if (!phraseInPrimary && !allTermsInName && score < 500) score -= 70;
+
+  return { food, score, reason };
+}
+
+function searchFoodsDatabase(query, limit = 80) {
+  const q = compactText(query);
+  if (!q) return [];
+
+  return BBB_FOODS
+    .map(food => scoreFoodMatch(food, q))
+    .filter(item => item.score > 0)
     .sort((a, b) => b.score - a.score || a.food.name.localeCompare(b.food.name))
-    .slice(0, limit)
-    .map(item => item.food);
+    .slice(0, limit);
 }
 
 function findFoodById(id) {
@@ -846,21 +1065,61 @@ function alternativesText(food) {
   return 'Consider a simpler, lower-fat, lower-fiber, less processed option when symptoms are active.';
 }
 
-function renderDatabaseResults(foods) {
-  if (!foods.length) {
-    return `<article class="result-card"><h3>No database match yet</h3><p>Try brand, product name, category, or internal ID.</p></article>`;
-  }
-  return `<div class="results-panel">${foods.map(food => `
+function foodResultButton(item) {
+  const food = item.food || item;
+  const reason = item.reason || '';
+  return `
     <button class="food-result-card" data-food-id="${escapeHtml(food.id)}" type="button">
       <div class="food-result-top">
         <div>
           <strong>${escapeHtml(food.brand ? food.brand + ' ' + food.name : food.name)}</strong>
           <span>${escapeHtml(food.id)} • ${escapeHtml(food.category)}${food.subcategory ? ' • ' + escapeHtml(food.subcategory) : ''}</span>
+          ${reason ? `<div class="result-meta-line"><span class="match-reason">${escapeHtml(reason)}</span></div>` : ''}
         </div>
         ${ratingPill(ratingForCurrentMode(food))}
       </div>
     </button>
-  `).join('')}</div>`;
+  `;
+}
+
+function renderDatabaseResults(items) {
+  if (!items.length) {
+    return `<article class="result-card"><h3>No database match yet</h3><p>Try fewer words, a brand name, a category, or an internal ID.</p></article>`;
+  }
+
+  const topMatches = items.slice(0, 6);
+  const moreMatches = items.slice(6);
+  const grouped = moreMatches.reduce((acc, item) => {
+    const key = item.food.category || 'Other';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {});
+
+  const categorySections = Object.entries(grouped)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([category, groupItems]) => `
+      <details class="category-group">
+        <summary>${escapeHtml(category)} <span>${groupItems.length} result${groupItems.length === 1 ? '' : 's'} +</span></summary>
+        <div class="category-group-body">
+          ${groupItems.map(foodResultButton).join('')}
+        </div>
+      </details>
+    `).join('');
+
+  return `
+    <div class="results-panel" id="results-start">
+      <div class="results-summary"><strong>${items.length} result${items.length === 1 ? '' : 's'} found</strong><span>intent ranked</span></div>
+      <p class="compact-results-note">Top Matches are shown first. Extra results stay collapsed by category so the page does not become a mile long.</p>
+      <div class="results-heading">Top Matches</div>
+      ${topMatches.map(foodResultButton).join('')}
+      ${moreMatches.length ? `
+        <div class="results-heading">More Results by Category</div>
+        ${categorySections}
+        <button class="back-to-results" data-action="back-to-results" type="button">↑ Back to top of results</button>
+      ` : ''}
+    </div>
+  `;
 }
 
 function foodCardScreen(food) {
@@ -976,7 +1235,7 @@ function homeScreen() {
   const ranges = [
     { id: 'today', label: 'Today' },
     { id: 'week', label: '7 Days' },
-    { id: 'month', label: '30 Days' },
+    { id: 'threeweek', label: '21 Days' },
   ];
   const currentLabel = ranges.find(item => item.id === state.range)?.label || 'Today';
 
@@ -1013,56 +1272,58 @@ function scanScreen() {
   const selectedFood = state.selectedFoodId ? findFoodById(state.selectedFoodId) : null;
   if (selectedFood) return foodCardScreen(selectedFood);
 
-  const databaseResults = searchFoodsDatabase(state.foodQuery, 30);
+  const databaseResults = searchFoodsDatabase(state.foodQuery, 80);
   const combinedText = [state.menuText, state.ingredientText, state.nutritionText].join(' ');
   const textResults = searchFoodsDatabase(combinedText, 20);
+  const quickSearches = ['rice', 'chicken soup', 'yogurt', 'crackers', 'banana', 'tomato sauce'];
 
   return `
     <div class="screen-content">
-      ${screenTitle('Scan', "Search the Bill's Bad Belly food database.")}
+      ${screenTitle('Search', "Find a food before you decide what to do with it.")}
 
-      <div class="camera-placeholder">
-        <span class="icon" style="font-size:3rem">${icons.camera}</span>
-        <p>Camera Placeholder</p>
-        <span>Camera, barcode, and OCR hooks will connect here. Search uses the 507-food database now.</span>
-      </div>
-
-      <div class="button-stack">
-        <button class="primary-action" type="button">
-          <span>${icons.upload}</span>
-          Upload Image Placeholder
-        </button>
-
-        <button class="secondary-action" type="button">
-          <span>${icons.search}</span>
-          Barcode/OCR Placeholder
-        </button>
-      </div>
-
-      <div class="input-card">
+      <div class="input-card search-tools">
         <h3>Food Search</h3>
-        <input class="search-box" id="foodQuery" value="${escapeHtml(state.foodQuery)}" placeholder="cheerios, chicken noodle, rice, yogurt" />
-        <div style="height:10px"></div>
+        <div class="search-row">
+          <input class="search-box" id="foodQuery" value="${escapeHtml(state.foodQuery)}" placeholder="chicken soup, cheerios, rice, yogurt" />
+          ${state.foodQuery.trim() ? `<button class="clear-search" data-action="clear-food-search" type="button">Clear</button>` : ''}
+        </div>
+        <p class="search-hint">Search ranks intent first: exact food names, phrase matches, then categories. Scanning comes later; searching is the working capture tool for this build.</p>
+        <div class="search-chip-row" aria-label="Quick searches">
+          ${quickSearches.map(term => `<button class="search-chip" data-action="quick-search" data-query="${escapeHtml(term)}" type="button">${escapeHtml(term)}</button>`).join('')}
+        </div>
         <button class="primary-action full-width" data-action="food-search" type="button"><span>${icons.search}</span> Search Database</button>
       </div>
 
       ${state.foodQuery.trim() ? renderDatabaseResults(databaseResults) : `
         <div class="input-card">
           <h3>Database Ready</h3>
-          <p>507 foods loaded. Search by brand, product, category, or internal ID.</p>
+          <p>507 foods loaded. Start with a food name, brand, category, or ID.</p>
         </div>
       `}
 
-      <div class="input-card">
-        <h3>Text Analysis Prototype</h3>
-        <p>Paste menu text, ingredients, or nutrition label text. Matching foods open as reusable food cards.</p>
-      </div>
+      <details class="input-card advanced-scan">
+        <summary>Advanced scan placeholders</summary>
+        <div class="advanced-scan-body">
+          <div class="camera-placeholder">
+            <span class="icon" style="font-size:3rem">${icons.camera}</span>
+            <p>Camera Placeholder</p>
+            <span>Camera, barcode, and OCR hooks will connect here later.</span>
+          </div>
+          <button class="primary-action" type="button"><span>${icons.upload}</span> Upload Image Placeholder</button>
+          <button class="secondary-action" type="button"><span>${icons.search}</span> Barcode/OCR Placeholder</button>
+        </div>
+      </details>
 
-      <textarea class="text-input" id="menuText" placeholder="Paste menu text">${escapeHtml(state.menuText)}</textarea>
-      <textarea class="text-input" id="ingredientText" placeholder="Paste ingredient list">${escapeHtml(state.ingredientText)}</textarea>
-      <textarea class="text-input" id="nutritionText" placeholder="Paste nutrition label text">${escapeHtml(state.nutritionText)}</textarea>
-
-      ${combinedText.trim() ? renderDatabaseResults(textResults) : ''}
+      <details class="input-card advanced-scan">
+        <summary>Text analysis prototype</summary>
+        <div class="advanced-scan-body">
+          <p>Paste menu text, ingredients, or nutrition label text. Matching foods open as reusable food cards.</p>
+          <textarea class="text-input" id="menuText" placeholder="Paste menu text">${escapeHtml(state.menuText)}</textarea>
+          <textarea class="text-input" id="ingredientText" placeholder="Paste ingredient list">${escapeHtml(state.ingredientText)}</textarea>
+          <textarea class="text-input" id="nutritionText" placeholder="Paste nutrition label text">${escapeHtml(state.nutritionText)}</textarea>
+          ${combinedText.trim() ? renderDatabaseResults(textResults) : ''}
+        </div>
+      </details>
     </div>
   `;
 }
@@ -1250,7 +1511,7 @@ function trendsScreen() {
         <div>
           <p>Trend Placeholder</p>
           <strong>Steady</strong>
-          <span>Today / 7 Days / 30 Days selector is active on Home. Deeper patterns come later.</span>
+          <span>Today / 7 Days / 21 Days selector is active on Home. Deeper patterns come later.</span>
         </div>
       </div>
     </div>
@@ -1333,6 +1594,16 @@ function bindEvents() {
         captureInputs();
         // Do not re-render while typing. Re-rendering steals focus on mobile/desktop.
       };
+      if (id === 'foodQuery') {
+        el.onkeydown = event => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            captureInputs();
+            state.selectedFoodId = '';
+            render();
+          }
+        };
+      }
     }
   });
 
@@ -1354,6 +1625,9 @@ function bindEvents() {
       if (action === 'bathroom-plus') state.bathroomTrips += 1;
       if (action === 'save-log') state.savedNotice = 'Log saved locally for this session.';
       if (action === 'food-search') { state.selectedFoodId = ''; }
+      if (action === 'clear-food-search') { state.foodQuery = ''; state.selectedFoodId = ''; }
+      if (action === 'quick-search') { state.foodQuery = btn.dataset.query || ''; state.selectedFoodId = ''; }
+      if (action === 'back-to-results') { document.getElementById('results-start')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       if (action === 'back-to-scan') { state.selectedFoodId = ''; }
       if (btn.dataset.foodId) { state.selectedFoodId = btn.dataset.foodId; state.activeTab = 'scan'; }
       if (action === 'log-food') {
