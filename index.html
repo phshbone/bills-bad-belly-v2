@@ -2105,6 +2105,54 @@ body.flare-mode .panel {
   color: #f0c6ff;
 }
 
+
+/* ---------- PHASE 2.1 ROTATION SCAN VISIBILITY FIX ---------- */
+.camera-bottom-bar {
+  gap: 12px !important;
+}
+.camera-single-wrap {
+  display: grid;
+  place-items: center;
+  gap: 5px;
+  color: rgba(255,255,255,.82);
+  font-size: .76rem;
+  font-weight: 900;
+  text-shadow: 0 1px 8px rgba(0,0,0,.65);
+}
+.camera-sweep-button {
+  min-height: 52px !important;
+  padding: 12px 18px !important;
+  border: 1px solid rgba(232,128,54,.72) !important;
+  background: rgba(45,22,12,.78) !important;
+  color: #fff !important;
+  font-size: .92rem !important;
+  letter-spacing: .02em;
+  box-shadow: 0 0 0 1px rgba(232,128,54,.20), 0 0 24px rgba(232,128,54,.24), 0 12px 30px rgba(0,0,0,.34) !important;
+}
+.camera-sweep-button.recording {
+  background: rgba(72,31,14,.92) !important;
+  box-shadow: 0 0 0 1px rgba(232,128,54,.36), 0 0 34px rgba(232,128,54,.36) !important;
+}
+.camera-sweep-progress {
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translateY(-50%);
+  text-align: center;
+  padding: 18px 16px !important;
+  background: rgba(5,7,10,.76) !important;
+}
+.camera-sweep-count {
+  font-family: var(--display-font);
+  font-size: clamp(3.4rem, 18vw, 5.6rem);
+  line-height: .9;
+  color: #fff;
+  text-shadow: 0 0 20px rgba(232,128,54,.45), 0 3px 18px rgba(0,0,0,.75);
+}
+.camera-sweep-progress.active + .camera-error-box,
+.camera-sweep-progress.active ~ .camera-bottom-bar .camera-single-wrap {
+  opacity: .45;
+}
+
 </style>
 </head>
 <body>
@@ -2149,6 +2197,7 @@ body.flare-mode .panel {
     <div class="camera-flash-confirm" id="cameraFlashConfirm" aria-hidden="true"></div>
     <div class="camera-sweep-progress" id="cameraSweepProgress" aria-hidden="true">
       <strong id="cameraSweepTitle">sweep scan</strong>
+      <div class="camera-sweep-count" id="cameraSweepCount">5</div>
       <span id="cameraSweepText">slowly rotate the can or bottle left to right</span>
       <div class="camera-sweep-bar"><span id="cameraSweepBar"></span></div>
     </div>
@@ -2159,8 +2208,11 @@ body.flare-mode .panel {
       <button class="secondary-action" id="cameraManualSearch" type="button">manual search</button>
     </div>
     <div class="camera-bottom-bar">
-      <button class="camera-shutter" id="cameraShutter" type="button" aria-label="Take photo"></button>
-      <button class="camera-sweep-button" id="cameraSweep" type="button">can/bottle sweep scan</button>
+      <button class="camera-sweep-button" id="cameraSweep" type="button">start 5-sec rotation scan</button>
+      <div class="camera-single-wrap">
+        <button class="camera-shutter" id="cameraShutter" type="button" aria-label="Take single photo"></button>
+        <span>single photo</span>
+      </div>
       <div class="camera-status" id="cameraStatus">starting camera…</div>
     </div>
   </div>
@@ -3057,7 +3109,7 @@ async function openCameraOverlay() {
   setCameraStatus('starting camera…');
   cameraSweepInProgress = false;
   const sweepButton = document.getElementById('cameraSweep');
-  if (sweepButton) { sweepButton.textContent = 'start 5-sec can/bottle sweep'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
+  if (sweepButton) { sweepButton.textContent = 'start 5-sec rotation scan'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
   const shutter = document.getElementById('cameraShutter');
   if (shutter) { shutter.disabled = false; shutter.setAttribute('aria-label', 'Take single photo'); }
   const closeButton = document.getElementById('cameraClose');
@@ -3067,7 +3119,9 @@ async function openCameraOverlay() {
   const sweepBox = document.getElementById('cameraSweepProgress');
   if (sweepBox) sweepBox.classList.remove('active');
   const sweepBar = document.getElementById('cameraSweepBar');
+  const sweepCount = document.getElementById('cameraSweepCount');
   if (sweepBar) sweepBar.style.width = '0%';
+  if (sweepCount) sweepCount.textContent = '5';
   const count = document.getElementById('cameraPhotoCount');
   if (count) count.textContent = `photo ${(state.scanPhotos?.length || 0) + 1}`;
   const hint = document.getElementById('cameraHint');
@@ -3188,6 +3242,8 @@ async function startSweepScan() {
   const sweepBox = document.getElementById('cameraSweepProgress');
   const sweepText = document.getElementById('cameraSweepText');
   const sweepBar = document.getElementById('cameraSweepBar');
+  const sweepCount = document.getElementById('cameraSweepCount');
+  const sweepTitle = document.getElementById('cameraSweepTitle');
   const shutter = document.getElementById('cameraShutter');
   const close = document.getElementById('cameraClose');
   const flip = document.getElementById('cameraFlip');
@@ -3200,7 +3256,9 @@ async function startSweepScan() {
 
   state.sweepMode = true;
   sweepButton?.classList.add('recording');
-  if (sweepButton) sweepButton.textContent = 'sweeping… keep rotating';
+  if (sweepButton) sweepButton.textContent = 'capturing sweep…';
+  if (sweepTitle) sweepTitle.textContent = 'rotate now';
+  if (sweepCount) sweepCount.textContent = '5';
   if (sweepBox) sweepBox.classList.add('active');
   if (shutter) shutter.disabled = true;
   if (close) close.disabled = true;
@@ -3215,7 +3273,8 @@ async function startSweepScan() {
     const pct = Math.min(1, elapsed / duration);
     const secondsLeft = Math.max(0, Math.ceil((duration - elapsed) / 1000));
     if (sweepBar) sweepBar.style.width = `${Math.round(pct * 100)}%`;
-    if (sweepText) sweepText.textContent = `slowly rotate the package left to right • ${secondsLeft}s`;
+    if (sweepCount) sweepCount.textContent = String(secondsLeft || 0);
+    if (sweepText) sweepText.textContent = `slowly rotate the package left to right — keep label inside frame`;
 
     const slot = Math.min(frameCount - 1, Math.floor(pct * frameCount));
     if (slot !== lastFrameSlot && frames.length < frameCount && video.videoWidth) {
@@ -3269,7 +3328,17 @@ function focusManualSearch() {
 function bindCameraOverlayEvents() {
   document.getElementById('cameraClose')?.addEventListener('click', closeCameraOverlay);
   document.getElementById('cameraShutter')?.addEventListener('click', captureCameraImage);
-  document.getElementById('cameraSweep')?.addEventListener('click', startSweepScan);
+  const sweepBtn = document.getElementById('cameraSweep');
+  sweepBtn?.addEventListener('click', startSweepScan);
+  sweepBtn?.addEventListener('touchend', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    startSweepScan();
+  }, { passive: false });
+  sweepBtn?.addEventListener('pointerup', (event) => {
+    if (event.pointerType === 'touch') return;
+    startSweepScan();
+  });
   document.getElementById('cameraRetry')?.addEventListener('click', openCameraOverlay);
   document.getElementById('cameraManualSearch')?.addEventListener('click', () => {
     closeCameraOverlay();
