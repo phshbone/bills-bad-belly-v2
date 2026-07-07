@@ -2086,6 +2086,25 @@ body.flare-mode .panel {
   line-height: 1.35;
 }
 
+
+
+/* ---------- PHASE 2.1 SWEEP SURGICAL FIX ---------- */
+.camera-sweep-button {
+  min-height: 46px;
+  border-color: rgba(232,128,54,.42) !important;
+  box-shadow: 0 0 16px rgba(232,128,54,.12);
+}
+.camera-sweep-button.recording {
+  opacity: .92;
+}
+.camera-shutter:disabled {
+  opacity: .46;
+  pointer-events: none;
+}
+.camera-status.sweep-ready {
+  color: #f0c6ff;
+}
+
 </style>
 </head>
 <body>
@@ -3007,6 +3026,7 @@ function setMode(nextMode) {
 
 let cameraStream = null;
 let cameraFacingMode = 'environment';
+let cameraSweepInProgress = false;
 let cameraOpeningFromScanTab = false;
 
 function setCameraStatus(message) {
@@ -3035,8 +3055,15 @@ async function openCameraOverlay() {
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
   setCameraStatus('starting camera…');
+  cameraSweepInProgress = false;
   const sweepButton = document.getElementById('cameraSweep');
-  if (sweepButton) { sweepButton.textContent = 'can/bottle sweep scan'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
+  if (sweepButton) { sweepButton.textContent = 'start 5-sec can/bottle sweep'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
+  const shutter = document.getElementById('cameraShutter');
+  if (shutter) { shutter.disabled = false; shutter.setAttribute('aria-label', 'Take single photo'); }
+  const closeButton = document.getElementById('cameraClose');
+  if (closeButton) closeButton.disabled = false;
+  const flipButton = document.getElementById('cameraFlip');
+  if (flipButton) flipButton.disabled = false;
   const sweepBox = document.getElementById('cameraSweepProgress');
   if (sweepBox) sweepBox.classList.remove('active');
   const sweepBar = document.getElementById('cameraSweepBar');
@@ -3081,6 +3108,7 @@ function stopCameraStream() {
 }
 
 function closeCameraOverlay() {
+  if (cameraSweepInProgress) return;
   stopCameraStream();
   const overlay = document.getElementById('cameraOverlay');
   if (overlay) {
@@ -3126,6 +3154,7 @@ function saveCapturedScanFrames(frames, mode = 'photo') {
 }
 
 async function captureCameraImage() {
+  if (cameraSweepInProgress) return;
   const video = document.getElementById('cameraVideo');
   if (!video || !video.videoWidth) {
     setCameraStatus('camera not ready');
@@ -3146,8 +3175,11 @@ async function captureCameraImage() {
 }
 
 async function startSweepScan() {
+  if (cameraSweepInProgress) return;
+  cameraSweepInProgress = true;
   const video = document.getElementById('cameraVideo');
   if (!video || !video.videoWidth) {
+    cameraSweepInProgress = false;
     setCameraStatus('camera not ready');
     return;
   }
@@ -3168,12 +3200,14 @@ async function startSweepScan() {
 
   state.sweepMode = true;
   sweepButton?.classList.add('recording');
-  if (sweepButton) sweepButton.textContent = 'sweeping…';
+  if (sweepButton) sweepButton.textContent = 'sweeping… keep rotating';
   if (sweepBox) sweepBox.classList.add('active');
   if (shutter) shutter.disabled = true;
   if (close) close.disabled = true;
   if (flip) flip.disabled = true;
-  setCameraStatus('slowly rotate left to right');
+  const cameraStatus = document.getElementById('cameraStatus');
+  if (cameraStatus) cameraStatus.classList.add('sweep-ready');
+  setCameraStatus('rotate slowly — capturing frames');
   if (navigator.vibrate) navigator.vibrate([25, 40, 25]);
 
   const tick = () => {
@@ -3199,6 +3233,9 @@ async function startSweepScan() {
         flash.classList.add('active');
       }
       if (navigator.vibrate) navigator.vibrate(45);
+      cameraSweepInProgress = false;
+      const cameraStatus = document.getElementById('cameraStatus');
+      if (cameraStatus) cameraStatus.classList.remove('sweep-ready');
       saveCapturedScanFrames(frames.length ? frames : [captureFrameFromVideo(video, 0.76, 1400)], 'sweep');
     }
   };
