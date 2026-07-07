@@ -2323,6 +2323,83 @@ body.flare-mode .panel {
   .camera-dock { left: 84px; right: 84px; }
 }
 
+
+
+/* ---------- PHASE 2.4 RECOGNITION UI VISIBILITY FIX ---------- */
+/* Make the active scan state obvious: full dusty-green lens pulse, not a faint partial rim. */
+.recognition-engine.collecting .camera-lens-shell,
+.recognition-engine.analyzing .camera-lens-shell {
+  border-color: rgba(159,177,159,.72) !important;
+  box-shadow:
+    0 0 0 2px rgba(159,177,159,.28),
+    0 0 22px rgba(159,177,159,.34),
+    0 0 46px rgba(159,177,159,.16),
+    inset 0 0 0 1px rgba(255,255,255,.10) !important;
+  animation: recognitionFullGreenPulse .95s ease-in-out infinite !important;
+}
+.recognition-engine.collecting .camera-progress-frame,
+.recognition-engine.analyzing .camera-progress-frame {
+  opacity: 1 !important;
+  border: 3px solid rgba(159,177,159,.72) !important;
+  box-shadow:
+    0 0 0 1px rgba(159,177,159,.22),
+    0 0 26px rgba(159,177,159,.32),
+    inset 0 0 18px rgba(159,177,159,.10) !important;
+  animation: recognitionFullGreenPulse .95s ease-in-out infinite !important;
+}
+.recognition-engine.collecting .progress-side,
+.recognition-engine.analyzing .progress-side {
+  opacity: .95 !important;
+  background: rgba(183,205,183,.92) !important;
+  box-shadow: 0 0 18px rgba(159,177,159,.52) !important;
+}
+.progress-top,
+.progress-bottom { height: 5px !important; }
+.progress-left,
+.progress-right { width: 5px !important; }
+@keyframes recognitionFullGreenPulse {
+  0%, 100% {
+    filter: saturate(.92) brightness(.95);
+    opacity: .78;
+  }
+  50% {
+    filter: saturate(1.28) brightness(1.26);
+    opacity: 1;
+  }
+}
+
+/* Keep captured previews and text centered/readable after scan. */
+.camera-captured-result,
+.camera-captured-result * {
+  max-width: 100%;
+}
+.camera-captured-result {
+  overflow: hidden;
+}
+.camera-captured-result h3,
+.camera-captured-result p,
+.screen-title h2 {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.camera-result-preview {
+  display: block !important;
+  width: 100% !important;
+  height: auto !important;
+  max-height: 420px !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: rgba(17,21,26,.55) !important;
+}
+.camera-thumbs {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.camera-thumb {
+  object-fit: cover;
+}
+
 </style>
 </head>
 <body>
@@ -2982,7 +3059,7 @@ function cameraCapturedResultCard() {
         <button class="primary-action" data-action="new-camera-scan" type="button">scan again</button>
         <button class="secondary-action" data-action="manual-search-focus" type="button">manual search</button>
       </div>
-      <p class="scan-helper-line"><strong>Recognition Engine:</strong> frames were collected as one product scan. Barcode/OCR analysis connects in the next build.</p>
+      <p class="scan-helper-line"><strong>Recognition Engine:</strong> frames collected as one product scan. Barcode/OCR connects next.</p>
     </article>
   `;
 }
@@ -2998,7 +3075,7 @@ function scanScreen() {
 
   return `
     <div class="screen-content">
-      ${screenTitle('Search', state.capturedImage ? "Scan captured. Analyze it or scan again." : "Find a food before you decide what to do with it.")}
+      ${screenTitle('Search', state.capturedImage ? "Scan complete." : "Find a food before you decide what to do with it.")}
 
       ${cameraCapturedResultCard()}
 
@@ -3480,8 +3557,8 @@ function runCameraFoundationPipeline(mode = 'photo') {
   const steps = [
     ['barcode', 'Looking for barcode. Barcode recognition connects in the next build.'],
     ['ocr', mode === 'recognition' ? 'Frames saved as one product scan.' : mode === 'sweep' ? 'Sweep frames saved as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
-    ['identify', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR connects next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR connects next.' : 'Photo captured. Barcode/OCR connects next.'],
-    ['complete', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR connects next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR connects next.' : 'Photo captured. Barcode/OCR connects next.']
+    ['identify', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR next.' : 'Photo captured. Barcode/OCR next.'],
+    ['complete', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR next.' : 'Photo captured. Barcode/OCR next.']
   ];
 
   steps.forEach(([stage, message], index) => {
