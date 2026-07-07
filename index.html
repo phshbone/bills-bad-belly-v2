@@ -2400,6 +2400,48 @@ body.flare-mode .panel {
   object-fit: cover;
 }
 
+
+/* ---------- PHASE 2.5 RECOGNITION ENGINE MICRO-POLISH ---------- */
+/* Stronger but still dusty-green active collection state. */
+.recognition-engine.collecting .camera-lens-shell,
+.recognition-engine.analyzing .camera-lens-shell {
+  border-color: rgba(159,177,159,.82) !important;
+  box-shadow:
+    0 0 0 2px rgba(159,177,159,.34),
+    0 0 28px rgba(159,177,159,.42),
+    0 0 58px rgba(159,177,159,.22),
+    inset 0 0 0 1px rgba(255,255,255,.12) !important;
+}
+.recognition-engine.collecting .camera-progress-frame,
+.recognition-engine.analyzing .camera-progress-frame {
+  border-color: rgba(183,205,183,.82) !important;
+  box-shadow:
+    0 0 0 1px rgba(159,177,159,.30),
+    0 0 30px rgba(159,177,159,.38),
+    inset 0 0 22px rgba(159,177,159,.14) !important;
+}
+.recognition-engine.collecting .recognition-status,
+.recognition-engine.analyzing .recognition-status {
+  color: #c8dec8 !important;
+  text-shadow: 0 0 10px rgba(159,177,159,.32);
+}
+.recognition-engine.collecting .recognition-scan-button,
+.recognition-engine.analyzing .recognition-scan-button {
+  background: linear-gradient(145deg, rgba(111,132,111,.92), rgba(77,96,79,.92)) !important;
+  box-shadow: 0 0 28px rgba(159,177,159,.30), 0 12px 26px rgba(0,0,0,.28) !important;
+}
+/* Result cards: keep long placeholder lines from clipping horizontally. */
+.screen-title h2,
+.camera-captured-result p,
+.camera-captured-result .scan-helper-line,
+.camera-captured-result .small-muted {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.camera-captured-result .button-stack {
+  width: 100%;
+}
+
 </style>
 </head>
 <body>
@@ -3103,8 +3145,8 @@ function scanScreen() {
 
       <div class="camera-launch-card">
         <h3>Camera Scan</h3>
-        <p>Use the full-screen camera to capture the product name, barcode, ingredients, and nutrition panel when possible. For cans and bottles, use sweep scan to rotate the label in one guided pass.</p>
-        <button class="primary-action full-width" data-action="new-camera-scan" type="button"><span>${icons.camera}</span> take food photo</button>
+        <p>Use the Recognition Engine to collect barcode, label, ingredients, and nutrition data when possible. Rotate cans or bottles slowly if needed.</p>
+        <button class="primary-action full-width" data-action="new-camera-scan" type="button"><span>${icons.camera}</span> scan product</button>
       </div>
 
       <details class="input-card advanced-scan">
@@ -3444,10 +3486,10 @@ function saveCapturedScanFrames(frames, mode = 'photo') {
   state.capturedMeta = { width: last.width, height: last.height, sizeKb: last.sizeKb };
   state.cameraStage = 'prepare';
   state.cameraMessage = mode === 'recognition'
-    ? `Recognition scan captured ${frames.length} frames. Analysis placeholder complete.`
+    ? `Recognition scan complete. Barcode/OCR connects next.`
     : mode === 'sweep'
-      ? `Sweep scan captured ${frames.length} frames. Analysis placeholder complete.`
-      : 'Photo captured. Analysis placeholder complete.';
+      ? `Sweep scan complete. Barcode/OCR connects next.`
+      : 'Scan complete. Barcode/OCR connects next.';
   state.appendNextCameraPhoto = false;
   state.sweepMode = mode === 'sweep';
   state.activeTab = 'scan';
@@ -3555,10 +3597,10 @@ async function startSweepScan() {
 
 function runCameraFoundationPipeline(mode = 'photo') {
   const steps = [
-    ['barcode', 'Looking for barcode. Barcode recognition connects in the next build.'],
-    ['ocr', mode === 'recognition' ? 'Frames saved as one product scan.' : mode === 'sweep' ? 'Sweep frames saved as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
-    ['identify', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR next.' : 'Photo captured. Barcode/OCR next.'],
-    ['complete', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR next.' : 'Photo captured. Barcode/OCR next.']
+    ['barcode', 'Preparing image for barcode lookup.'],
+    ['ocr', mode === 'recognition' ? 'Frames collected as one product scan.' : mode === 'sweep' ? 'Sweep frames collected as one product scan.' : 'Reading captured label.'],
+    ['identify', 'Identifying food record.'],
+    ['complete', 'Scan complete. Barcode/OCR connects next.']
   ];
 
   steps.forEach(([stage, message], index) => {
@@ -3611,12 +3653,12 @@ async function startRecognitionScan() {
   const flip = document.getElementById('cameraFlip');
   const close = document.getElementById('cameraClose');
   const helper = document.getElementById('recognitionHelper');
-  if (scanButton) { scanButton.disabled = true; scanButton.textContent = 'collecting data…'; }
+  if (scanButton) { scanButton.disabled = true; scanButton.textContent = 'collecting information…'; }
   if (flip) flip.disabled = true;
   if (close) close.disabled = true;
   if (cancel) cancel.disabled = false;
   if (helper) helper.textContent = 'Rotate cans or bottles slowly. Hold flat packages steady.';
-  setCameraStatus('reading package…');
+  setCameraStatus('collecting information…');
   if (navigator.vibrate) navigator.vibrate([22, 34, 22]);
 
   const duration = 5200;
@@ -3626,7 +3668,7 @@ async function startRecognitionScan() {
   let lastFrameSlot = -1;
   let lastStage = 0;
 
-  const labels = ['looking for barcode…', 'finding product name…', 'reading nutrition…', 'checking ingredients…'];
+  const labels = ['looking for barcode…', 'reading label…', 'checking nutrition…', 'checking ingredients…'];
 
   const tick = () => {
     if (!cameraSweepInProgress) return;
@@ -3651,7 +3693,7 @@ async function startRecognitionScan() {
     } else {
       overlay.classList.remove('collecting');
       overlay.classList.add('analyzing', 'stage-4');
-      setCameraStatus('analyzing…');
+      setCameraStatus('information collected.');
       if (helper) helper.textContent = 'Preparing result…';
       if (navigator.vibrate) navigator.vibrate(45);
       const flash = document.getElementById('cameraFlashConfirm');
@@ -3663,7 +3705,7 @@ async function startRecognitionScan() {
       setTimeout(() => {
         cameraSweepInProgress = false;
         saveCapturedScanFrames(frames.length ? frames : [captureFrameFromVideo(video, 0.76, 1400)], 'recognition');
-      }, 520);
+      }, 680);
     }
   };
 
