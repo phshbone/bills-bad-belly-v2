@@ -1567,6 +1567,44 @@ body.flare-mode .panel {
   stroke: rgba(176, 84, 103, 0.95) !important;
 }
 
+
+/* v1.0.4 rating pill glow test */
+[data-rating-pill="good"],
+[data-rating-pill="ehh"],
+[data-rating-pill="ugly"] {
+  background: linear-gradient(180deg, rgba(24,29,36,.98), rgba(16,20,26,.98)) !important;
+  color: var(--rose, #caa0d1) !important;
+  border: 1px solid var(--rating-glow) !important;
+  box-shadow: 0 0 0 1px var(--rating-glow-soft), 0 0 12px var(--rating-glow-soft), inset 0 0 10px rgba(255,255,255,.025) !important;
+  text-shadow: 0 0 1px var(--rating-glow), 0 0 9px var(--rating-glow-soft) !important;
+}
+[data-rating-pill="good"] { --rating-glow: rgba(123,173,135,.78); --rating-glow-soft: rgba(123,173,135,.24); }
+[data-rating-pill="ehh"] { --rating-glow: rgba(211,143,82,.78); --rating-glow-soft: rgba(211,143,82,.25); }
+[data-rating-pill="ugly"] { --rating-glow: rgba(176,84,103,.78); --rating-glow-soft: rgba(176,84,103,.24); }
+
+[data-rating-heading="good"],
+[data-rating-heading="ehh"],
+[data-rating-heading="ugly"] {
+  color: var(--rose, #caa0d1) !important;
+  text-shadow: 0 0 1px var(--rating-heading-glow), 0 0 10px var(--rating-heading-soft) !important;
+}
+[data-rating-heading="good"] { --rating-heading-glow: rgba(123,173,135,.8); --rating-heading-soft: rgba(123,173,135,.24); }
+[data-rating-heading="ehh"] { --rating-heading-glow: rgba(211,143,82,.8); --rating-heading-soft: rgba(211,143,82,.26); }
+[data-rating-heading="ugly"] { --rating-heading-glow: rgba(176,84,103,.8); --rating-heading-soft: rgba(176,84,103,.24); }
+
+[data-rating-card="good"] {
+  border-color: rgba(123,173,135,.38) !important;
+  box-shadow: 0 0 14px rgba(123,173,135,.10), 0 12px 28px rgba(0,0,0,.25) !important;
+}
+[data-rating-card="ehh"] {
+  border-color: rgba(211,143,82,.38) !important;
+  box-shadow: 0 0 14px rgba(211,143,82,.11), 0 12px 28px rgba(0,0,0,.25) !important;
+}
+[data-rating-card="ugly"] {
+  border-color: rgba(176,84,103,.38) !important;
+  box-shadow: 0 0 14px rgba(176,84,103,.10), 0 12px 28px rgba(0,0,0,.25) !important;
+}
+
 </style>
 </head>
 <body>
@@ -2625,6 +2663,36 @@ document.addEventListener('touchend', function(e) {
   document.addEventListener('DOMContentLoaded', applyRatingAccents);
   document.addEventListener('click', function(){ setTimeout(applyRatingAccents, 80); }, true);
   setInterval(applyRatingAccents, 1200);
+})();
+</script>
+
+
+<script>
+/* v1.0.4 direct rating pill accent hooks */
+(function(){
+  function ratingOfText(t){
+    const s = (t || '').trim().toLowerCase();
+    if (s === 'good') return 'good';
+    if (s === 'ehh') return 'ehh';
+    if (s === 'ugly') return 'ugly';
+    return null;
+  }
+  function applyRatingPillGlow(){
+    const all = Array.from(document.querySelectorAll('button, span, div, h1, h2, h3, .rating-pill, .badge, .pill'));
+    all.forEach(el => {
+      const rating = ratingOfText(el.textContent);
+      if (!rating) return;
+      const rect = el.getBoundingClientRect();
+      const looksLikePill = rect.width <= 150 && rect.height <= 75;
+      if (looksLikePill) el.setAttribute('data-rating-pill', rating);
+      else el.setAttribute('data-rating-heading', rating);
+      const card = el.closest('.card, .panel, .result-card, .food-card, .content-card, .screen-card');
+      if (card) card.setAttribute('data-rating-card', rating);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', applyRatingPillGlow);
+  document.addEventListener('click', function(){ setTimeout(applyRatingPillGlow, 80); }, true);
+  setInterval(applyRatingPillGlow, 1200);
 })();
 </script>
 
