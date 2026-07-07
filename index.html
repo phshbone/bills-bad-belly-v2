@@ -2153,6 +2153,176 @@ body.flare-mode .panel {
   opacity: .45;
 }
 
+
+
+/* ---------- PHASE 2.3 RECOGNITION ENGINE CAMERA UI ---------- */
+.camera-overlay.recognition-engine {
+  background: #05070a;
+  overflow: hidden;
+}
+.recognition-engine .camera-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.recognition-engine .camera-safe-top {
+  z-index: 8;
+}
+.recognition-engine .camera-hint {
+  max-width: 250px;
+  background: rgba(27,32,39,.70);
+  border-color: rgba(184,154,192,.20);
+  color: rgba(243,237,244,.88);
+}
+.camera-lens-shell,
+.camera-progress-frame {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: calc(74px + env(safe-area-inset-top, 0px));
+  bottom: calc(164px + env(safe-area-inset-bottom, 0px));
+  border-radius: 30px 30px 34px 34px;
+  pointer-events: none;
+  z-index: 3;
+}
+.camera-lens-shell {
+  border: 2px solid rgba(48,57,70,.88);
+  box-shadow:
+    0 0 0 1px rgba(184,154,192,.12),
+    inset 0 0 0 1px rgba(255,255,255,.08),
+    0 18px 42px rgba(0,0,0,.36);
+}
+.camera-corner {
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  opacity: .72;
+}
+.camera-corner.tl { left: 14px; top: 14px; border-left: 3px solid rgba(184,154,192,.60); border-top: 3px solid rgba(184,154,192,.60); border-radius: 14px 0 0 0; }
+.camera-corner.tr { right: 14px; top: 14px; border-right: 3px solid rgba(184,154,192,.60); border-top: 3px solid rgba(184,154,192,.60); border-radius: 0 14px 0 0; }
+.camera-corner.bl { left: 14px; bottom: 14px; border-left: 3px solid rgba(184,154,192,.60); border-bottom: 3px solid rgba(184,154,192,.60); border-radius: 0 0 0 14px; }
+.camera-corner.br { right: 14px; bottom: 14px; border-right: 3px solid rgba(184,154,192,.60); border-bottom: 3px solid rgba(184,154,192,.60); border-radius: 0 0 14px 0; }
+.camera-progress-frame {
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity .22s ease;
+  box-shadow: 0 0 0 1px rgba(159,177,159,.0), 0 0 14px rgba(159,177,159,.0);
+}
+.recognition-engine.collecting .camera-progress-frame,
+.recognition-engine.analyzing .camera-progress-frame {
+  opacity: 1;
+  animation: recognitionDustyPulse 1.05s ease-in-out infinite;
+}
+.progress-side {
+  position: absolute;
+  display: block;
+  background: linear-gradient(90deg, rgba(159,177,159,.34), rgba(183,205,183,.88), rgba(159,177,159,.34));
+  box-shadow: 0 0 16px rgba(159,177,159,.35);
+  opacity: 0;
+  transition: opacity .35s ease;
+}
+.progress-top { left: 0; top: 0; height: 3px; width: 100%; }
+.progress-right { right: 0; top: 0; width: 3px; height: 100%; background: linear-gradient(180deg, rgba(159,177,159,.34), rgba(183,205,183,.88), rgba(159,177,159,.34)); }
+.progress-bottom { right: 0; bottom: 0; height: 3px; width: 100%; }
+.progress-left { left: 0; bottom: 0; width: 3px; height: 100%; background: linear-gradient(0deg, rgba(159,177,159,.34), rgba(183,205,183,.88), rgba(159,177,159,.34)); }
+.recognition-engine.stage-1 .progress-left,
+.recognition-engine.stage-2 .progress-left,
+.recognition-engine.stage-2 .progress-bottom,
+.recognition-engine.stage-3 .progress-left,
+.recognition-engine.stage-3 .progress-bottom,
+.recognition-engine.stage-3 .progress-right,
+.recognition-engine.stage-4 .progress-left,
+.recognition-engine.stage-4 .progress-bottom,
+.recognition-engine.stage-4 .progress-right,
+.recognition-engine.stage-4 .progress-top,
+.recognition-engine.analyzing .progress-left,
+.recognition-engine.analyzing .progress-bottom,
+.recognition-engine.analyzing .progress-right,
+.recognition-engine.analyzing .progress-top { opacity: 1; }
+.recognition-engine.stage-4 .camera-progress-frame {
+  box-shadow: 0 0 0 1px rgba(159,177,159,.28), 0 0 28px rgba(159,177,159,.24);
+}
+@keyframes recognitionDustyPulse {
+  0%, 100% { filter: saturate(.78) brightness(.86); }
+  50% { filter: saturate(1.08) brightness(1.12); }
+}
+.camera-dock {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  z-index: 7;
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 26px;
+  border: 1px solid rgba(184,154,192,.24);
+  background: linear-gradient(145deg, rgba(48,57,70,.94), rgba(27,32,39,.96));
+  box-shadow: 0 18px 50px rgba(0,0,0,.52), inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+.recognition-status {
+  min-height: 24px;
+  color: var(--purple-light);
+  font-size: .82rem;
+  font-weight: 900;
+  text-align: center;
+}
+.recognition-scan-button {
+  width: 100%;
+  min-height: 54px;
+  border: 0;
+  border-radius: 18px;
+  color: var(--cream);
+  background: linear-gradient(145deg, var(--purple), #5e4867);
+  box-shadow: 0 12px 26px rgba(125,95,134,.32);
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+.recognition-scan-button:disabled {
+  opacity: .54;
+}
+.recognition-helper {
+  margin: 0;
+  color: var(--muted);
+  text-align: center;
+  font-size: .84rem;
+  line-height: 1.28;
+}
+.recognition-cancel {
+  min-height: 38px;
+  border: 1px solid rgba(184,154,192,.22);
+  border-radius: 14px;
+  color: var(--cream);
+  background: rgba(17,21,26,.42);
+  font-weight: 900;
+}
+.recognition-engine.collecting .recognition-scan-button,
+.recognition-engine.analyzing .recognition-scan-button {
+  background: linear-gradient(145deg, #6f846f, #4d604f);
+  box-shadow: 0 0 24px rgba(159,177,159,.26), 0 12px 26px rgba(0,0,0,.28);
+}
+.recognition-engine.collecting .camera-lens-shell,
+.recognition-engine.analyzing .camera-lens-shell {
+  border-color: rgba(159,177,159,.30);
+}
+.camera-result-preview {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 16px;
+  border: 1px solid rgba(184,154,192,.22);
+  background: rgba(17,21,26,.45);
+}
+@media (orientation: landscape) {
+  .camera-lens-shell,
+  .camera-progress-frame { left: 62px; right: 62px; top: calc(54px + env(safe-area-inset-top, 0px)); bottom: calc(122px + env(safe-area-inset-bottom, 0px)); }
+  .camera-dock { left: 84px; right: 84px; }
+}
+
 </style>
 </head>
 <body>
@@ -2178,42 +2348,44 @@ body.flare-mode .panel {
     </nav>
   </main>
 
-  <div class="camera-overlay" id="cameraOverlay" aria-hidden="true">
+  <div class="camera-overlay recognition-engine" id="cameraOverlay" aria-hidden="true">
     <video class="camera-video" id="cameraVideo" autoplay playsinline muted></video>
     <div class="camera-safe-top">
-      <div class="camera-hint" id="cameraHint">Best results: barcode + product name + nutrition facts + ingredients. For cans or bottles, use sweep scan.</div>
+      <div class="camera-hint" id="cameraHint">Center the label. Rotate cans or bottles slowly if needed.</div>
       <div style="display:flex; gap:8px;">
         <button class="camera-flip" id="cameraFlip" type="button" aria-label="Switch camera">↻</button>
         <button class="camera-close" id="cameraClose" type="button" aria-label="Close camera">×</button>
       </div>
     </div>
-    <div class="camera-photo-count" id="cameraPhotoCount">photo 1</div>
-    <div class="camera-frame-guide" aria-hidden="true"></div>
-    <div class="camera-checklist" aria-hidden="true">
-      <span class="camera-check-pill">barcode</span>
-      <span class="camera-check-pill">nutrition</span>
-      <span class="camera-check-pill">ingredients</span>
+
+    <div class="camera-lens-shell" aria-hidden="true">
+      <div class="camera-corner tl"></div>
+      <div class="camera-corner tr"></div>
+      <div class="camera-corner bl"></div>
+      <div class="camera-corner br"></div>
     </div>
+
+    <div class="camera-progress-frame" aria-hidden="true">
+      <span class="progress-side progress-top"></span>
+      <span class="progress-side progress-right"></span>
+      <span class="progress-side progress-bottom"></span>
+      <span class="progress-side progress-left"></span>
+    </div>
+
     <div class="camera-flash-confirm" id="cameraFlashConfirm" aria-hidden="true"></div>
-    <div class="camera-sweep-progress" id="cameraSweepProgress" aria-hidden="true">
-      <strong id="cameraSweepTitle">sweep scan</strong>
-      <div class="camera-sweep-count" id="cameraSweepCount">5</div>
-      <span id="cameraSweepText">slowly rotate the can or bottle left to right</span>
-      <div class="camera-sweep-bar"><span id="cameraSweepBar"></span></div>
-    </div>
+
     <div class="camera-error-box" id="cameraErrorBox">
       <h3>Camera unavailable</h3>
       <p id="cameraErrorText">Camera access could not start. You can retry or use manual search.</p>
       <button class="primary-action" id="cameraRetry" type="button">retry camera</button>
       <button class="secondary-action" id="cameraManualSearch" type="button">manual search</button>
     </div>
-    <div class="camera-bottom-bar">
-      <button class="camera-sweep-button" id="cameraSweep" type="button">start 5-sec rotation scan</button>
-      <div class="camera-single-wrap">
-        <button class="camera-shutter" id="cameraShutter" type="button" aria-label="Take single photo"></button>
-        <span>single photo</span>
-      </div>
-      <div class="camera-status" id="cameraStatus">starting camera…</div>
+
+    <div class="camera-dock">
+      <div class="recognition-status" id="cameraStatus">starting camera…</div>
+      <button class="recognition-scan-button" id="cameraScanProduct" type="button">scan product</button>
+      <p class="recognition-helper" id="recognitionHelper">Keep the label in view. Rotate package if needed.</p>
+      <button class="recognition-cancel" id="cameraCancelDock" type="button">cancel</button>
     </div>
   </div>
 
@@ -2791,7 +2963,7 @@ function cameraCapturedResultCard() {
   if (!state.capturedImage) return '';
   return `
     <article class="result-card camera-captured-result">
-      <h3>${state.sweepMode ? 'Sweep Scan Captured' : 'Photo Captured'}</h3>
+      <h3>${state.sweepMode ? 'Recognition Scan Captured' : 'Photo Captured'}</h3>
       <img class="camera-result-preview" src="${state.capturedImage}" alt="Captured food scan preview" />
       <p>${escapeHtml(state.cameraMessage || 'Camera pipeline operational.')}</p>
       ${state.scanPhotos && state.scanPhotos.length ? `<p class="small-muted">${state.scanPhotos.length} frame${state.scanPhotos.length === 1 ? '' : 's'} captured for this product.</p>` : ''}
@@ -2807,11 +2979,10 @@ function cameraCapturedResultCard() {
         }).join('')}
       </div>
       <div class="button-stack">
-        <button class="primary-action" data-action="analyze-camera-product" type="button">analyze product</button>
-        <button class="secondary-action" data-action="new-camera-scan" type="button">scan again</button>
+        <button class="primary-action" data-action="new-camera-scan" type="button">scan again</button>
         <button class="secondary-action" data-action="manual-search-focus" type="button">manual search</button>
       </div>
-      <p class="scan-helper-line"><strong>can or bottle?</strong> use sweep scan next time and slowly rotate the label once. The app saves several frames as one product scan.</p>
+      <p class="scan-helper-line"><strong>Recognition Engine:</strong> frames were collected as one product scan. Barcode/OCR analysis connects in the next build.</p>
     </article>
   `;
 }
@@ -3108,6 +3279,7 @@ async function openCameraOverlay() {
   overlay.setAttribute('aria-hidden', 'false');
   setCameraStatus('starting camera…');
   cameraSweepInProgress = false;
+  resetRecognitionOverlay();
   const sweepButton = document.getElementById('cameraSweep');
   if (sweepButton) { sweepButton.textContent = 'start 5-sec rotation scan'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
   const shutter = document.getElementById('cameraShutter');
@@ -3144,7 +3316,7 @@ async function openCameraOverlay() {
     cameraStream = await navigator.mediaDevices.getUserMedia(constraints);
     video.srcObject = cameraStream;
     await video.play();
-    setCameraStatus('ready');
+    setCameraStatus('ready to scan');
   } catch (error) {
     const needsHttps = location.protocol !== 'https:' && location.hostname !== 'localhost';
     const message = needsHttps
@@ -3194,9 +3366,11 @@ function saveCapturedScanFrames(frames, mode = 'photo') {
   state.capturedImage = last.dataUrl;
   state.capturedMeta = { width: last.width, height: last.height, sizeKb: last.sizeKb };
   state.cameraStage = 'prepare';
-  state.cameraMessage = mode === 'sweep'
-    ? `Sweep scan captured ${frames.length} frames. Next step: analyze product.`
-    : 'Photo captured. Next step: analyze product.';
+  state.cameraMessage = mode === 'recognition'
+    ? `Recognition scan captured ${frames.length} frames. Analysis placeholder complete.`
+    : mode === 'sweep'
+      ? `Sweep scan captured ${frames.length} frames. Analysis placeholder complete.`
+      : 'Photo captured. Analysis placeholder complete.';
   state.appendNextCameraPhoto = false;
   state.sweepMode = mode === 'sweep';
   state.activeTab = 'scan';
@@ -3305,9 +3479,9 @@ async function startSweepScan() {
 function runCameraFoundationPipeline(mode = 'photo') {
   const steps = [
     ['barcode', 'Looking for barcode. Barcode recognition connects in the next build.'],
-    ['ocr', mode === 'sweep' ? 'Sweep frames saved as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
-    ['identify', mode === 'sweep' ? 'Sweep scan ready. Next step: analyze product.' : 'Photo captured. Next step: analyze product.'],
-    ['complete', mode === 'sweep' ? 'Sweep scan ready. Next step: analyze product.' : 'Photo captured. Next step: analyze product.']
+    ['ocr', mode === 'recognition' ? 'Frames saved as one product scan.' : mode === 'sweep' ? 'Sweep frames saved as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
+    ['identify', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR connects next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR connects next.' : 'Photo captured. Barcode/OCR connects next.'],
+    ['complete', mode === 'recognition' ? 'Recognition scan complete. Barcode/OCR connects next.' : mode === 'sweep' ? 'Sweep scan ready. Barcode/OCR connects next.' : 'Photo captured. Barcode/OCR connects next.']
   ];
 
   steps.forEach(([stage, message], index) => {
@@ -3325,20 +3499,107 @@ function focusManualSearch() {
   setTimeout(() => document.getElementById('foodQuery')?.focus(), 80);
 }
 
+
+function resetRecognitionOverlay() {
+  const overlay = document.getElementById('cameraOverlay');
+  if (!overlay) return;
+  overlay.classList.remove('collecting', 'analyzing', 'stage-1', 'stage-2', 'stage-3', 'stage-4');
+  const scanButton = document.getElementById('cameraScanProduct');
+  if (scanButton) { scanButton.disabled = false; scanButton.textContent = 'scan product'; }
+  const cancel = document.getElementById('cameraCancelDock');
+  if (cancel) cancel.disabled = false;
+  const flip = document.getElementById('cameraFlip');
+  if (flip) flip.disabled = false;
+  const close = document.getElementById('cameraClose');
+  if (close) close.disabled = false;
+  const helper = document.getElementById('recognitionHelper');
+  if (helper) helper.textContent = 'Keep the label in view. Rotate package if needed.';
+}
+
+async function startRecognitionScan() {
+  if (cameraSweepInProgress) return;
+  const overlay = document.getElementById('cameraOverlay');
+  const video = document.getElementById('cameraVideo');
+  if (!overlay || !video || !video.videoWidth) {
+    setCameraStatus('camera not ready');
+    return;
+  }
+
+  cameraSweepInProgress = true;
+  overlay.classList.remove('stage-1', 'stage-2', 'stage-3', 'stage-4', 'analyzing');
+  overlay.classList.add('collecting');
+
+  const scanButton = document.getElementById('cameraScanProduct');
+  const cancel = document.getElementById('cameraCancelDock');
+  const flip = document.getElementById('cameraFlip');
+  const close = document.getElementById('cameraClose');
+  const helper = document.getElementById('recognitionHelper');
+  if (scanButton) { scanButton.disabled = true; scanButton.textContent = 'collecting data…'; }
+  if (flip) flip.disabled = true;
+  if (close) close.disabled = true;
+  if (cancel) cancel.disabled = false;
+  if (helper) helper.textContent = 'Rotate cans or bottles slowly. Hold flat packages steady.';
+  setCameraStatus('reading package…');
+  if (navigator.vibrate) navigator.vibrate([22, 34, 22]);
+
+  const duration = 5200;
+  const frameCount = 7;
+  const frames = [];
+  const startedAt = performance.now();
+  let lastFrameSlot = -1;
+  let lastStage = 0;
+
+  const labels = ['looking for barcode…', 'finding product name…', 'reading nutrition…', 'checking ingredients…'];
+
+  const tick = () => {
+    if (!cameraSweepInProgress) return;
+    const elapsed = performance.now() - startedAt;
+    const pct = Math.min(1, elapsed / duration);
+    const stage = Math.min(4, Math.max(1, Math.ceil(pct * 4)));
+    if (stage !== lastStage) {
+      lastStage = stage;
+      overlay.classList.remove('stage-1', 'stage-2', 'stage-3', 'stage-4');
+      overlay.classList.add(`stage-${stage}`);
+      setCameraStatus(labels[stage - 1] || 'collecting data…');
+    }
+
+    const slot = Math.min(frameCount - 1, Math.floor(pct * frameCount));
+    if (slot !== lastFrameSlot && frames.length < frameCount && video.videoWidth) {
+      lastFrameSlot = slot;
+      frames.push(captureFrameFromVideo(video, 0.76, 1400));
+    }
+
+    if (elapsed < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      overlay.classList.remove('collecting');
+      overlay.classList.add('analyzing', 'stage-4');
+      setCameraStatus('analyzing…');
+      if (helper) helper.textContent = 'Preparing result…';
+      if (navigator.vibrate) navigator.vibrate(45);
+      const flash = document.getElementById('cameraFlashConfirm');
+      if (flash) {
+        flash.classList.remove('active');
+        void flash.offsetWidth;
+        flash.classList.add('active');
+      }
+      setTimeout(() => {
+        cameraSweepInProgress = false;
+        saveCapturedScanFrames(frames.length ? frames : [captureFrameFromVideo(video, 0.76, 1400)], 'recognition');
+      }, 520);
+    }
+  };
+
+  requestAnimationFrame(tick);
+}
+
 function bindCameraOverlayEvents() {
   document.getElementById('cameraClose')?.addEventListener('click', closeCameraOverlay);
-  document.getElementById('cameraShutter')?.addEventListener('click', captureCameraImage);
-  const sweepBtn = document.getElementById('cameraSweep');
-  sweepBtn?.addEventListener('click', startSweepScan);
-  sweepBtn?.addEventListener('touchend', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    startSweepScan();
-  }, { passive: false });
-  sweepBtn?.addEventListener('pointerup', (event) => {
-    if (event.pointerType === 'touch') return;
-    startSweepScan();
+  document.getElementById('cameraCancelDock')?.addEventListener('click', () => {
+    cameraSweepInProgress = false;
+    closeCameraOverlay();
   });
+  document.getElementById('cameraScanProduct')?.addEventListener('click', startRecognitionScan);
   document.getElementById('cameraRetry')?.addEventListener('click', openCameraOverlay);
   document.getElementById('cameraManualSearch')?.addEventListener('click', () => {
     closeCameraOverlay();
@@ -3349,6 +3610,7 @@ function bindCameraOverlayEvents() {
     openCameraOverlay();
   });
 }
+
 
 
 function render() {
