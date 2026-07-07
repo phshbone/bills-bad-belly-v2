@@ -2009,9 +2009,81 @@ body.flare-mode .panel {
 }
 .scan-capture-note strong { color: #d9b7e1; }
 
+.camera-sweep-button {
+  min-height: 38px;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 999px;
+  padding: 8px 13px;
+  background: rgba(5,7,10,.58);
+  color: rgba(255,255,255,.88);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: .78rem;
+  font-weight: 900;
+}
+.camera-sweep-button.recording {
+  border-color: rgba(215,118,62,.55);
+  color: #fff;
+  box-shadow: 0 0 18px rgba(215,118,62,.22);
+}
+.camera-sweep-progress {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: calc(214px + env(safe-area-inset-bottom, 0px));
+  z-index: 3;
+  display: none;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(215,118,62,.36);
+  background: rgba(5,7,10,.64);
+  color: rgba(255,255,255,.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: .84rem;
+  line-height: 1.25;
+}
+.camera-sweep-progress.active { display: grid; }
+.camera-sweep-progress strong { color: #f0c6ff; }
+.camera-sweep-bar {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255,255,255,.16);
+}
+.camera-sweep-bar span {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: rgba(215,118,62,.82);
+  transition: width .18s linear;
+}
+.scan-helper-line {
+  margin: 0;
+  color: var(--muted);
+  font-size: .84rem;
+  line-height: 1.35;
+}
+
 @media (orientation: landscape) {
   .camera-frame-guide { inset: 58px 110px 96px; }
   .camera-bottom-bar { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
+
+
+/* ---------- PHASE 2.2 CAMERA FLOW FIX ---------- */
+.camera-captured-result {
+  border-color: rgba(184,154,192,.34) !important;
+}
+.camera-captured-result .button-stack {
+  margin-top: 10px;
+}
+.scan-helper-line {
+  margin-top: 10px !important;
+  color: var(--muted) !important;
+  font-size: .88rem;
+  line-height: 1.35;
 }
 
 </style>
@@ -2042,7 +2114,7 @@ body.flare-mode .panel {
   <div class="camera-overlay" id="cameraOverlay" aria-hidden="true">
     <video class="camera-video" id="cameraVideo" autoplay playsinline muted></video>
     <div class="camera-safe-top">
-      <div class="camera-hint" id="cameraHint">Best results: barcode + product name + nutrition facts + ingredients. Cans may need two photos.</div>
+      <div class="camera-hint" id="cameraHint">Best results: barcode + product name + nutrition facts + ingredients. For cans or bottles, use sweep scan.</div>
       <div style="display:flex; gap:8px;">
         <button class="camera-flip" id="cameraFlip" type="button" aria-label="Switch camera">↻</button>
         <button class="camera-close" id="cameraClose" type="button" aria-label="Close camera">×</button>
@@ -2056,6 +2128,11 @@ body.flare-mode .panel {
       <span class="camera-check-pill">ingredients</span>
     </div>
     <div class="camera-flash-confirm" id="cameraFlashConfirm" aria-hidden="true"></div>
+    <div class="camera-sweep-progress" id="cameraSweepProgress" aria-hidden="true">
+      <strong id="cameraSweepTitle">sweep scan</strong>
+      <span id="cameraSweepText">slowly rotate the can or bottle left to right</span>
+      <div class="camera-sweep-bar"><span id="cameraSweepBar"></span></div>
+    </div>
     <div class="camera-error-box" id="cameraErrorBox">
       <h3>Camera unavailable</h3>
       <p id="cameraErrorText">Camera access could not start. You can retry or use manual search.</p>
@@ -2064,6 +2141,7 @@ body.flare-mode .panel {
     </div>
     <div class="camera-bottom-bar">
       <button class="camera-shutter" id="cameraShutter" type="button" aria-label="Take photo"></button>
+      <button class="camera-sweep-button" id="cameraSweep" type="button">can/bottle sweep scan</button>
       <div class="camera-status" id="cameraStatus">starting camera…</div>
     </div>
   </div>
@@ -2099,6 +2177,7 @@ const state = {
   capturedMeta: null,
   scanPhotos: [],
   appendNextCameraPhoto: false,
+  sweepMode: false,
   cupboardItems: JSON.parse(localStorage.getItem('bbbCupboardItems') || '[]'),
   foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]'),
   modeInfoOpen: false,
@@ -2637,6 +2716,35 @@ function homeScreen() {
   `;
 }
 
+function cameraCapturedResultCard() {
+  if (!state.capturedImage) return '';
+  return `
+    <article class="result-card camera-captured-result">
+      <h3>${state.sweepMode ? 'Sweep Scan Captured' : 'Photo Captured'}</h3>
+      <img class="camera-result-preview" src="${state.capturedImage}" alt="Captured food scan preview" />
+      <p>${escapeHtml(state.cameraMessage || 'Camera pipeline operational.')}</p>
+      ${state.scanPhotos && state.scanPhotos.length ? `<p class="small-muted">${state.scanPhotos.length} frame${state.scanPhotos.length === 1 ? '' : 's'} captured for this product.</p>` : ''}
+      ${state.scanPhotos && state.scanPhotos.length > 1 ? `<div class="camera-thumbs">${state.scanPhotos.map((photo, i) => `<img class="camera-thumb" src="${photo.dataUrl}" alt="Scan frame ${i + 1}" />`).join('')}</div>` : ''}
+      ${state.capturedMeta ? `<p class="small-muted">Latest compressed image: ${state.capturedMeta.width} × ${state.capturedMeta.height}px • ${state.capturedMeta.sizeKb} KB</p>` : ''}
+      <div class="scan-pipeline">
+        ${['Preparing Image', 'Looking for Barcode', 'Reading Label', 'Identifying Food'].map((label, index) => {
+          const stages = ['prepare', 'barcode', 'ocr', 'identify'];
+          const currentIndex = state.cameraStage === 'complete' ? stages.length : stages.indexOf(state.cameraStage || '');
+          const cls = currentIndex > index ? 'done' : currentIndex === index ? 'active' : '';
+          const mark = currentIndex > index ? '✓' : currentIndex === index ? '•' : '';
+          return `<div class="scan-stage ${cls}"><span class="scan-stage-icon">${mark}</span><span>${label}</span></div>`;
+        }).join('')}
+      </div>
+      <div class="button-stack">
+        <button class="primary-action" data-action="analyze-camera-product" type="button">analyze product</button>
+        <button class="secondary-action" data-action="new-camera-scan" type="button">scan again</button>
+        <button class="secondary-action" data-action="manual-search-focus" type="button">manual search</button>
+      </div>
+      <p class="scan-helper-line"><strong>can or bottle?</strong> use sweep scan next time and slowly rotate the label once. The app saves several frames as one product scan.</p>
+    </article>
+  `;
+}
+
 function scanScreen() {
   const selectedFood = state.selectedFoodId ? findFoodById(state.selectedFoodId) : null;
   if (selectedFood) return foodCardScreen(selectedFood);
@@ -2648,7 +2756,9 @@ function scanScreen() {
 
   return `
     <div class="screen-content">
-      ${screenTitle('Search', "Find a food before you decide what to do with it.")}
+      ${screenTitle('Search', state.capturedImage ? "Scan captured. Analyze it or scan again." : "Find a food before you decide what to do with it.")}
+
+      ${cameraCapturedResultCard()}
 
       <div class="input-card search-tools">
         <h3>Food Search</h3>
@@ -2674,35 +2784,9 @@ function scanScreen() {
 
       <div class="camera-launch-card">
         <h3>Camera Scan</h3>
-        <p>Use the full-screen camera to capture the product name, barcode, ingredients, and nutrition panel when possible. Curved labels can be captured as a two-photo scan.</p>
+        <p>Use the full-screen camera to capture the product name, barcode, ingredients, and nutrition panel when possible. For cans and bottles, use sweep scan to rotate the label in one guided pass.</p>
         <button class="primary-action full-width" data-action="new-camera-scan" type="button"><span>${icons.camera}</span> take food photo</button>
       </div>
-
-      ${state.capturedImage ? `
-        <article class="result-card">
-          <h3>Photo Captured</h3>
-          <img class="camera-result-preview" src="${state.capturedImage}" alt="Captured food scan preview" />
-          <p>${escapeHtml(state.cameraMessage || 'Camera pipeline operational.')}</p>
-          ${state.scanPhotos && state.scanPhotos.length ? `<p class="small-muted">${state.scanPhotos.length} photo${state.scanPhotos.length === 1 ? '' : 's'} captured for this product.</p>` : ''}
-          ${state.scanPhotos && state.scanPhotos.length > 1 ? `<div class="camera-thumbs">${state.scanPhotos.map((photo, i) => `<img class="camera-thumb" src="${photo.dataUrl}" alt="Scan angle ${i + 1}" />`).join('')}</div>` : ''}
-          <div class="scan-capture-note"><strong>Curved package rule:</strong> if the nutrition facts or ingredients wrap around a can or bottle, rotate it about 90° and add another angle. The app will treat both photos as one product scan.</div>
-          ${state.capturedMeta ? `<p class="small-muted">Latest compressed image: ${state.capturedMeta.width} × ${state.capturedMeta.height}px • ${state.capturedMeta.sizeKb} KB</p>` : ''}
-          <div class="scan-pipeline">
-            ${['Preparing Image', 'Looking for Barcode', 'Reading Label', 'Identifying Food'].map((label, index) => {
-              const stages = ['prepare', 'barcode', 'ocr', 'identify'];
-              const currentIndex = state.cameraStage === 'complete' ? stages.length : stages.indexOf(state.cameraStage || '');
-              const cls = currentIndex > index ? 'done' : currentIndex === index ? 'active' : '';
-              const mark = currentIndex > index ? '✓' : currentIndex === index ? '•' : '';
-              return `<div class="scan-stage ${cls}"><span class="scan-stage-icon">${mark}</span><span>${label}</span></div>`;
-            }).join('')}
-          </div>
-          <div class="button-stack">
-            <button class="primary-action" data-action="add-camera-angle" type="button">add another angle</button>
-            <button class="secondary-action" data-action="new-camera-scan" type="button">restart scan</button>
-            <button class="secondary-action" data-action="manual-search-focus" type="button">manual search</button>
-          </div>
-        </article>
-      ` : ''}
 
       <details class="input-card advanced-scan">
         <summary>Text analysis prototype</summary>
@@ -2951,6 +3035,12 @@ async function openCameraOverlay() {
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
   setCameraStatus('starting camera…');
+  const sweepButton = document.getElementById('cameraSweep');
+  if (sweepButton) { sweepButton.textContent = 'can/bottle sweep scan'; sweepButton.classList.remove('recording'); sweepButton.disabled = false; }
+  const sweepBox = document.getElementById('cameraSweepProgress');
+  if (sweepBox) sweepBox.classList.remove('active');
+  const sweepBar = document.getElementById('cameraSweepBar');
+  if (sweepBar) sweepBar.style.width = '0%';
   const count = document.getElementById('cameraPhotoCount');
   if (count) count.textContent = `photo ${(state.scanPhotos?.length || 0) + 1}`;
   const hint = document.getElementById('cameraHint');
@@ -2999,6 +3089,42 @@ function closeCameraOverlay() {
   }
 }
 
+function captureFrameFromVideo(video, quality = 0.82, maxDimension = 1600) {
+  const sourceWidth = video.videoWidth;
+  const sourceHeight = video.videoHeight;
+  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
+  const targetWidth = Math.round(sourceWidth * scale);
+  const targetHeight = Math.round(sourceHeight * scale);
+  const canvas = document.createElement('canvas');
+  canvas.width = targetWidth;
+  canvas.height = targetHeight;
+  const ctx = canvas.getContext('2d', { alpha: false });
+  ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
+  const dataUrl = canvas.toDataURL('image/jpeg', quality);
+  const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
+  return { dataUrl, width: targetWidth, height: targetHeight, sizeKb, capturedAt: new Date().toISOString() };
+}
+
+function saveCapturedScanFrames(frames, mode = 'photo') {
+  if (!frames.length) return;
+  state.scanPhotos = frames;
+  const last = frames[frames.length - 1];
+  state.capturedImage = last.dataUrl;
+  state.capturedMeta = { width: last.width, height: last.height, sizeKb: last.sizeKb };
+  state.cameraStage = 'prepare';
+  state.cameraMessage = mode === 'sweep'
+    ? `Sweep scan captured ${frames.length} frames. Next step: analyze product.`
+    : 'Photo captured. Next step: analyze product.';
+  state.appendNextCameraPhoto = false;
+  state.sweepMode = mode === 'sweep';
+  state.activeTab = 'scan';
+  state.selectedFoodId = '';
+  closeCameraOverlay();
+  render();
+  setTimeout(() => window.scrollTo({ top: 0, behavior: 'smooth' }), 60);
+  runCameraFoundationPipeline(mode);
+}
+
 async function captureCameraImage() {
   const video = document.getElementById('cameraVideo');
   if (!video || !video.videoWidth) {
@@ -3015,46 +3141,77 @@ async function captureCameraImage() {
   }
   if (navigator.vibrate) navigator.vibrate(35);
 
-  const maxDimension = 1600;
-  const sourceWidth = video.videoWidth;
-  const sourceHeight = video.videoHeight;
-  const scale = Math.min(1, maxDimension / Math.max(sourceWidth, sourceHeight));
-  const targetWidth = Math.round(sourceWidth * scale);
-  const targetHeight = Math.round(sourceHeight * scale);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = targetWidth;
-  canvas.height = targetHeight;
-  const ctx = canvas.getContext('2d', { alpha: false });
-  ctx.drawImage(video, 0, 0, targetWidth, targetHeight);
-
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
-  const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
-
-  const photoRecord = { dataUrl, width: targetWidth, height: targetHeight, sizeKb, capturedAt: new Date().toISOString() };
-  if (!state.appendNextCameraPhoto) state.scanPhotos = [];
-  state.scanPhotos.push(photoRecord);
-  state.capturedImage = dataUrl;
-  state.capturedMeta = { width: targetWidth, height: targetHeight, sizeKb };
-  state.cameraStage = 'prepare';
-  state.cameraMessage = state.scanPhotos.length === 1
-    ? 'First angle captured. If this is a can or bottle and the label wraps around, add another angle.'
-    : `Angle ${state.scanPhotos.length} captured. Both photos will be treated as one product scan.`;
-  state.appendNextCameraPhoto = false;
-  state.activeTab = 'scan';
-  state.selectedFoodId = '';
-
-  closeCameraOverlay();
-  render();
-  runCameraFoundationPipeline();
+  const photoRecord = captureFrameFromVideo(video, 0.82, 1600);
+  saveCapturedScanFrames([photoRecord], 'photo');
 }
 
-function runCameraFoundationPipeline() {
+async function startSweepScan() {
+  const video = document.getElementById('cameraVideo');
+  if (!video || !video.videoWidth) {
+    setCameraStatus('camera not ready');
+    return;
+  }
+
+  const sweepButton = document.getElementById('cameraSweep');
+  const sweepBox = document.getElementById('cameraSweepProgress');
+  const sweepText = document.getElementById('cameraSweepText');
+  const sweepBar = document.getElementById('cameraSweepBar');
+  const shutter = document.getElementById('cameraShutter');
+  const close = document.getElementById('cameraClose');
+  const flip = document.getElementById('cameraFlip');
+
+  const duration = 5200;
+  const frameCount = 7;
+  const frames = [];
+  const startedAt = performance.now();
+  let lastFrameSlot = -1;
+
+  state.sweepMode = true;
+  sweepButton?.classList.add('recording');
+  if (sweepButton) sweepButton.textContent = 'sweeping…';
+  if (sweepBox) sweepBox.classList.add('active');
+  if (shutter) shutter.disabled = true;
+  if (close) close.disabled = true;
+  if (flip) flip.disabled = true;
+  setCameraStatus('slowly rotate left to right');
+  if (navigator.vibrate) navigator.vibrate([25, 40, 25]);
+
+  const tick = () => {
+    const elapsed = performance.now() - startedAt;
+    const pct = Math.min(1, elapsed / duration);
+    const secondsLeft = Math.max(0, Math.ceil((duration - elapsed) / 1000));
+    if (sweepBar) sweepBar.style.width = `${Math.round(pct * 100)}%`;
+    if (sweepText) sweepText.textContent = `slowly rotate the package left to right • ${secondsLeft}s`;
+
+    const slot = Math.min(frameCount - 1, Math.floor(pct * frameCount));
+    if (slot !== lastFrameSlot && frames.length < frameCount && video.videoWidth) {
+      lastFrameSlot = slot;
+      frames.push(captureFrameFromVideo(video, 0.76, 1400));
+    }
+
+    if (elapsed < duration) {
+      requestAnimationFrame(tick);
+    } else {
+      const flash = document.getElementById('cameraFlashConfirm');
+      if (flash) {
+        flash.classList.remove('active');
+        void flash.offsetWidth;
+        flash.classList.add('active');
+      }
+      if (navigator.vibrate) navigator.vibrate(45);
+      saveCapturedScanFrames(frames.length ? frames : [captureFrameFromVideo(video, 0.76, 1400)], 'sweep');
+    }
+  };
+
+  requestAnimationFrame(tick);
+}
+
+function runCameraFoundationPipeline(mode = 'photo') {
   const steps = [
     ['barcode', 'Looking for barcode. Barcode recognition connects in the next build.'],
-    ['ocr', state.scanPhotos.length > 1 ? 'Reading multiple label angles as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
-    ['identify', state.scanPhotos.length > 1 ? 'Multi-angle scan saved. Next step: barcode/OCR recognition.' : 'Photo captured successfully. Next step: barcode recognition.'],
-    ['complete', state.scanPhotos.length > 1 ? 'Multi-angle scan saved. Next step: barcode/OCR recognition.' : 'Photo captured successfully. Next step: barcode recognition.']
+    ['ocr', mode === 'sweep' ? 'Sweep frames saved as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
+    ['identify', mode === 'sweep' ? 'Sweep scan ready. Next step: analyze product.' : 'Photo captured. Next step: analyze product.'],
+    ['complete', mode === 'sweep' ? 'Sweep scan ready. Next step: analyze product.' : 'Photo captured. Next step: analyze product.']
   ];
 
   steps.forEach(([stage, message], index) => {
@@ -3075,6 +3232,7 @@ function focusManualSearch() {
 function bindCameraOverlayEvents() {
   document.getElementById('cameraClose')?.addEventListener('click', closeCameraOverlay);
   document.getElementById('cameraShutter')?.addEventListener('click', captureCameraImage);
+  document.getElementById('cameraSweep')?.addEventListener('click', startSweepScan);
   document.getElementById('cameraRetry')?.addEventListener('click', openCameraOverlay);
   document.getElementById('cameraManualSearch')?.addEventListener('click', () => {
     closeCameraOverlay();
@@ -3192,6 +3350,7 @@ function bindEvents() {
         state.cameraStage = '';
         state.cameraMessage = '';
         state.appendNextCameraPhoto = false;
+        state.sweepMode = false;
         render();
         setTimeout(openCameraOverlay, 80);
         return;
@@ -3200,6 +3359,14 @@ function bindEvents() {
         state.appendNextCameraPhoto = true;
         render();
         setTimeout(openCameraOverlay, 80);
+        return;
+      }
+      if (action === 'analyze-camera-product') {
+        state.cameraStage = 'complete';
+        state.cameraMessage = state.sweepMode
+          ? 'Sweep scan saved. Barcode/OCR recognition is the next engine layer.'
+          : 'Photo scan saved. Barcode/OCR recognition is the next engine layer.';
+        render();
         return;
       }
       if (action === 'manual-search-focus') { focusManualSearch(); return; }
@@ -3273,6 +3440,7 @@ bindCameraOverlayEvents();
 /* v1.0.3 foundation final touch guard */
 document.addEventListener('touchend', function(e) {
   const target = e.target.closest('button, .counter-btn, .tap-choice, .nav-button, .mode-pill');
+  if (target && target.closest('.camera-overlay')) return;
   if (target) {
     e.preventDefault();
     target.click();
