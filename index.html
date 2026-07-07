@@ -1921,6 +1921,94 @@ body.flare-mode .panel {
 .camera-error-box h3 { margin: 0; color: var(--purple-light); }
 .camera-error-box p { margin: 0; color: var(--muted); line-height: 1.4; }
 
+.camera-hint.fade-ready {
+  opacity: .18;
+  transform: translateY(-3px);
+  transition: opacity .35s ease, transform .35s ease;
+}
+.camera-hint.fade-ready:hover,
+.camera-hint.fade-ready:focus-within {
+  opacity: .92;
+}
+.camera-checklist {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: calc(122px + env(safe-area-inset-bottom, 0px));
+  z-index: 2;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.camera-check-pill {
+  padding: 6px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  color: rgba(255,255,255,.78);
+  background: rgba(5,7,10,.48);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  font-size: .72rem;
+  font-weight: 900;
+}
+.camera-photo-count {
+  position: absolute;
+  left: 18px;
+  top: calc(82px + env(safe-area-inset-top, 0px));
+  z-index: 2;
+  min-height: 28px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.14);
+  background: rgba(5,7,10,.48);
+  color: rgba(255,255,255,.82);
+  font-size: .72rem;
+  font-weight: 900;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.camera-flash-confirm {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: rgba(255,255,255,.82);
+  opacity: 0;
+}
+.camera-flash-confirm.active { animation: cameraCaptureFlash .22s ease-out; }
+@keyframes cameraCaptureFlash {
+  0% { opacity: 0; }
+  35% { opacity: .65; }
+  100% { opacity: 0; }
+}
+.camera-thumbs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  -webkit-overflow-scrolling: touch;
+}
+.camera-thumb {
+  width: 70px;
+  height: 88px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid rgba(184,154,192,.24);
+  background: rgba(17,21,26,.5);
+}
+.scan-capture-note {
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(215,118,62,.26);
+  background: rgba(215,118,62,.08);
+  color: var(--cream);
+  line-height: 1.38;
+  font-size: .88rem;
+}
+.scan-capture-note strong { color: #d9b7e1; }
+
 @media (orientation: landscape) {
   .camera-frame-guide { inset: 58px 110px 96px; }
   .camera-bottom-bar { bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
@@ -1954,13 +2042,20 @@ body.flare-mode .panel {
   <div class="camera-overlay" id="cameraOverlay" aria-hidden="true">
     <video class="camera-video" id="cameraVideo" autoplay playsinline muted></video>
     <div class="camera-safe-top">
-      <div class="camera-hint">Fill the frame with the label when possible. Try to include the barcode, product name, ingredients, and nutrition facts.</div>
+      <div class="camera-hint" id="cameraHint">Best results: barcode + product name + nutrition facts + ingredients. Cans may need two photos.</div>
       <div style="display:flex; gap:8px;">
         <button class="camera-flip" id="cameraFlip" type="button" aria-label="Switch camera">↻</button>
         <button class="camera-close" id="cameraClose" type="button" aria-label="Close camera">×</button>
       </div>
     </div>
+    <div class="camera-photo-count" id="cameraPhotoCount">photo 1</div>
     <div class="camera-frame-guide" aria-hidden="true"></div>
+    <div class="camera-checklist" aria-hidden="true">
+      <span class="camera-check-pill">barcode</span>
+      <span class="camera-check-pill">nutrition</span>
+      <span class="camera-check-pill">ingredients</span>
+    </div>
+    <div class="camera-flash-confirm" id="cameraFlashConfirm" aria-hidden="true"></div>
     <div class="camera-error-box" id="cameraErrorBox">
       <h3>Camera unavailable</h3>
       <p id="cameraErrorText">Camera access could not start. You can retry or use manual search.</p>
@@ -2002,6 +2097,8 @@ const state = {
   cameraMessage: '',
   capturedImage: '',
   capturedMeta: null,
+  scanPhotos: [],
+  appendNextCameraPhoto: false,
   cupboardItems: JSON.parse(localStorage.getItem('bbbCupboardItems') || '[]'),
   foodLogs: JSON.parse(localStorage.getItem('bbbFoodLogs') || '[]'),
   modeInfoOpen: false,
@@ -2577,8 +2674,8 @@ function scanScreen() {
 
       <div class="camera-launch-card">
         <h3>Camera Scan</h3>
-        <p>Use the full-screen camera to capture the product name, barcode, ingredients, and nutrition panel when possible.</p>
-        <button class="primary-action full-width" data-action="open-camera" type="button"><span>${icons.camera}</span> take food photo</button>
+        <p>Use the full-screen camera to capture the product name, barcode, ingredients, and nutrition panel when possible. Curved labels can be captured as a two-photo scan.</p>
+        <button class="primary-action full-width" data-action="new-camera-scan" type="button"><span>${icons.camera}</span> take food photo</button>
       </div>
 
       ${state.capturedImage ? `
@@ -2586,7 +2683,10 @@ function scanScreen() {
           <h3>Photo Captured</h3>
           <img class="camera-result-preview" src="${state.capturedImage}" alt="Captured food scan preview" />
           <p>${escapeHtml(state.cameraMessage || 'Camera pipeline operational.')}</p>
-          ${state.capturedMeta ? `<p class="small-muted">Compressed image: ${state.capturedMeta.width} × ${state.capturedMeta.height}px • ${state.capturedMeta.sizeKb} KB</p>` : ''}
+          ${state.scanPhotos && state.scanPhotos.length ? `<p class="small-muted">${state.scanPhotos.length} photo${state.scanPhotos.length === 1 ? '' : 's'} captured for this product.</p>` : ''}
+          ${state.scanPhotos && state.scanPhotos.length > 1 ? `<div class="camera-thumbs">${state.scanPhotos.map((photo, i) => `<img class="camera-thumb" src="${photo.dataUrl}" alt="Scan angle ${i + 1}" />`).join('')}</div>` : ''}
+          <div class="scan-capture-note"><strong>Curved package rule:</strong> if the nutrition facts or ingredients wrap around a can or bottle, rotate it about 90° and add another angle. The app will treat both photos as one product scan.</div>
+          ${state.capturedMeta ? `<p class="small-muted">Latest compressed image: ${state.capturedMeta.width} × ${state.capturedMeta.height}px • ${state.capturedMeta.sizeKb} KB</p>` : ''}
           <div class="scan-pipeline">
             ${['Preparing Image', 'Looking for Barcode', 'Reading Label', 'Identifying Food'].map((label, index) => {
               const stages = ['prepare', 'barcode', 'ocr', 'identify'];
@@ -2597,7 +2697,8 @@ function scanScreen() {
             }).join('')}
           </div>
           <div class="button-stack">
-            <button class="primary-action" data-action="open-camera" type="button">retry scan</button>
+            <button class="primary-action" data-action="add-camera-angle" type="button">add another angle</button>
+            <button class="secondary-action" data-action="new-camera-scan" type="button">restart scan</button>
             <button class="secondary-action" data-action="manual-search-focus" type="button">manual search</button>
           </div>
         </article>
@@ -2850,6 +2951,14 @@ async function openCameraOverlay() {
   overlay.classList.add('active');
   overlay.setAttribute('aria-hidden', 'false');
   setCameraStatus('starting camera…');
+  const count = document.getElementById('cameraPhotoCount');
+  if (count) count.textContent = `photo ${(state.scanPhotos?.length || 0) + 1}`;
+  const hint = document.getElementById('cameraHint');
+  if (hint) {
+    hint.classList.remove('fade-ready');
+    clearTimeout(openCameraOverlay.hintTimer);
+    openCameraOverlay.hintTimer = setTimeout(() => hint.classList.add('fade-ready'), 3600);
+  }
 
   try {
     stopCameraStream();
@@ -2898,6 +3007,13 @@ async function captureCameraImage() {
   }
 
   setCameraStatus('capturing…');
+  const flash = document.getElementById('cameraFlashConfirm');
+  if (flash) {
+    flash.classList.remove('active');
+    void flash.offsetWidth;
+    flash.classList.add('active');
+  }
+  if (navigator.vibrate) navigator.vibrate(35);
 
   const maxDimension = 1600;
   const sourceWidth = video.videoWidth;
@@ -2915,10 +3031,16 @@ async function captureCameraImage() {
   const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
   const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
 
+  const photoRecord = { dataUrl, width: targetWidth, height: targetHeight, sizeKb, capturedAt: new Date().toISOString() };
+  if (!state.appendNextCameraPhoto) state.scanPhotos = [];
+  state.scanPhotos.push(photoRecord);
   state.capturedImage = dataUrl;
   state.capturedMeta = { width: targetWidth, height: targetHeight, sizeKb };
   state.cameraStage = 'prepare';
-  state.cameraMessage = 'Preparing image for recognition.';
+  state.cameraMessage = state.scanPhotos.length === 1
+    ? 'First angle captured. If this is a can or bottle and the label wraps around, add another angle.'
+    : `Angle ${state.scanPhotos.length} captured. Both photos will be treated as one product scan.`;
+  state.appendNextCameraPhoto = false;
   state.activeTab = 'scan';
   state.selectedFoodId = '';
 
@@ -2930,9 +3052,9 @@ async function captureCameraImage() {
 function runCameraFoundationPipeline() {
   const steps = [
     ['barcode', 'Looking for barcode. Barcode recognition connects in the next build.'],
-    ['ocr', 'Reading label placeholder. OCR connects after barcode.'],
-    ['identify', 'Photo captured successfully. Camera pipeline operational. Next step: barcode recognition.'],
-    ['complete', 'Photo captured successfully. Camera pipeline operational. Next step: barcode recognition.']
+    ['ocr', state.scanPhotos.length > 1 ? 'Reading multiple label angles as one product scan.' : 'Reading label placeholder. OCR connects after barcode.'],
+    ['identify', state.scanPhotos.length > 1 ? 'Multi-angle scan saved. Next step: barcode/OCR recognition.' : 'Photo captured successfully. Next step: barcode recognition.'],
+    ['complete', state.scanPhotos.length > 1 ? 'Multi-angle scan saved. Next step: barcode/OCR recognition.' : 'Photo captured successfully. Next step: barcode recognition.']
   ];
 
   steps.forEach(([stage, message], index) => {
@@ -3063,6 +3185,23 @@ function bindEvents() {
       const action = btn.dataset.action;
 
       if (action === 'open-camera') { render(); setTimeout(openCameraOverlay, 80); return; }
+      if (action === 'new-camera-scan') {
+        state.scanPhotos = [];
+        state.capturedImage = '';
+        state.capturedMeta = null;
+        state.cameraStage = '';
+        state.cameraMessage = '';
+        state.appendNextCameraPhoto = false;
+        render();
+        setTimeout(openCameraOverlay, 80);
+        return;
+      }
+      if (action === 'add-camera-angle') {
+        state.appendNextCameraPhoto = true;
+        render();
+        setTimeout(openCameraOverlay, 80);
+        return;
+      }
       if (action === 'manual-search-focus') { focusManualSearch(); return; }
 
       if (action === 'mode-info') { state.modeInfoOpen = !state.modeInfoOpen; state.infoTopic = ''; render(); return; }
