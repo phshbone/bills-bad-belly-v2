@@ -55,12 +55,27 @@ jobs:
 
           page = Path('index.html')
           html = page.read_text(encoding='utf-8')
+          original_html = html
+
+          # The old v2 Scan action automatically opens the ingredient/OCR camera 80 ms
+          # after entering the Scan screen. In the integrated path that camera sits on
+          # top of the barcode controls and blocks them. Keep the legacy camera itself,
+          # but suppress only this automatic takeover when the scanner panel is present.
+          old_auto = "if (cameraOpeningFromScanTab) {"
+          guarded_auto = "if (cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')) {"
+          if old_auto in html:
+              html = html.replace(old_auto, guarded_auto, 1)
+          elif guarded_auto not in html:
+              raise SystemExit('Legacy camera auto-open anchor changed; stop rather than hiding an unrelated overlay.')
+
           marker = '<!-- BBB_SCANNER_VERTICAL_SLICE -->'
           hook = '''\n<!-- BBB_SCANNER_VERTICAL_SLICE -->\n<script src="./bbb-scanner-core.js"></script>\n<script src="./bbb-scanner.js"></script>\n'''
           if marker not in html:
               if '</body>' not in html:
                   raise SystemExit('index.html has no closing body tag; LOCK must be reopened.')
               html = html.replace('</body>', hook + '</body>', 1)
+
+          if html != original_html:
               page.write_text(html, encoding='utf-8')
 
       - name: Syntax checks
@@ -100,6 +115,7 @@ jobs:
           test "$(grep -c 'BBB_SCANNER_VERTICAL_SLICE' index.html)" -eq 1
           test "$(grep -c 'bbb-scanner-core.js' index.html)" -eq 1
           test "$(grep -c 'bbb-scanner.js' index.html)" -eq 1
+          test "$(grep -c "cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')" index.html)" -eq 1
           test "$(node -p "require('./bbb-rules.json').version")" = "1.5.1"
           ! grep -q 'bbb-rules-v1.5.1.json' index.html
           ! grep -q 'bbb-rules.json' index.html
