@@ -30,7 +30,7 @@
   function offNutrients(n={}){
     const fields={calories:'energy-kcal',fat:'fat',saturatedFat:'saturated-fat',carbohydrates:'carbohydrates',fiber:'fiber',sugars:'sugars',addedSugars:'added-sugars',sugarAlcohols:'polyols',protein:'proteins',sodium:'sodium'};
     const per100g={},perServing={};
-    for(const [out,key] of Object.entries(fields)){per100g[out]=num(n[`${key}_100g`]);perServing[out]=num(n[`${key}_serving`]);}
+    for(const [out,key] of Object.entries(fields)){per100g[out]=num(n[`${key}_100g`]);perServing[out]=num(n[`${key}_serving`]);if(out==='sodium'){if(per100g[out]!=null)per100g[out]*=1000;if(perServing[out]!=null)perServing[out]*=1000;}}
     return {per100g,perServing};
   }
 
@@ -54,8 +54,16 @@
     return {per100g,perServing};
   }
 
+  function normalizeUSDAServing(food){
+    const metric=clean([food.servingSize,food.servingSizeUnit].filter(v=>v!=null&&v!=='').join(' '));
+    const household=clean(food.householdServingFullText);
+    const size=household&&metric?`${household} (${metric})`:(household||metric);
+    const servingsPerContainer=food.numberOfServings!=null?clean(food.numberOfServings):'';
+    return {size,servingsPerContainer};
+  }
+
   function normalizeUSDA(food,barcode){
-    return {barcode:clean(food.gtinUpc||barcode),productName:clean(food.description||food.lowercaseDescription),brand:clean(food.brandName||food.brandOwner),category:clean(food.brandedFoodCategory||food.foodCategory),ingredientsText:clean(food.ingredients),parsedIngredientFamilies:[],ingredientForms:[],nutrition:mapUSDANutrients(food),serving:{size:clean([food.servingSize,food.servingSizeUnit].filter(v=>v!=null&&v!=='').join(' ')),servingsPerContainer:clean(food.householdServingFullText||food.numberOfServings)},packageQuantity:clean(food.packageWeight||food.packageQuantity),sources:[{name:'USDA FoodData Central via protected Worker',retrievedAt:nowIso(),updatedAt:clean(food.publicationDate||food.modifiedDate)}],confidence:'database',completeness:{},verificationState:'database',fallbackPhotoRefs:[],rulesVersion:ENGINE_VERSION,raw:{usda:food}};
+    return {barcode:clean(food.gtinUpc||barcode),productName:clean(food.description||food.lowercaseDescription),brand:clean(food.brandName||food.brandOwner),category:clean(food.brandedFoodCategory||food.foodCategory),ingredientsText:clean(food.ingredients),parsedIngredientFamilies:[],ingredientForms:[],nutrition:mapUSDANutrients(food),serving:normalizeUSDAServing(food),packageQuantity:clean(food.packageWeight||food.packageQuantity),sources:[{name:'USDA FoodData Central via protected Worker',retrievedAt:nowIso(),updatedAt:clean(food.publicationDate||food.modifiedDate)}],confidence:'database',completeness:{},verificationState:'database',fallbackPhotoRefs:[],rulesVersion:ENGINE_VERSION,raw:{usda:food}};
   }
 
   function mergeRecords(primary,supplement){

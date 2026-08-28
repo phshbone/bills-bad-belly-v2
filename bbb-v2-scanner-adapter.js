@@ -68,8 +68,17 @@ function bindAdapterEvents(){
   document.querySelector('[data-bbb-save-cupboard]')?.addEventListener('click',()=>{const r=state.bbbLiveProduct,a=state.bbbLiveEvaluation;if(!r||!a)return;const id=`GTIN-${r.barcode}`;if(!state.cupboardItems.some(x=>x.id===id))state.cupboardItems.unshift({id,barcode:r.barcode,name:r.productName,brand:r.brand,rating:a.label,mode:state.mode,timestamp:new Date().toISOString()});state.cupboardItems=state.cupboardItems.slice(0,100);localStorage.setItem('bbbCupboardItems',JSON.stringify(state.cupboardItems));state.savedNotice='saved to Your Cupboard.';render();});
   document.querySelectorAll('[data-bbb-history-status]').forEach(btn=>btn.onclick=()=>{const barcode=btn.dataset.barcode;const d=BBBScanner.getDecision(localStorage,barcode);if(!d)return;BBBScanner.saveDecision(localStorage,{barcode,productName:d.productName,brand:d.brand},btn.dataset.bbbHistoryStatus,{mode:d.mode||state.mode,timing:d.timing||'before',reason:d.reason||''});state.savedNotice='personal decision updated.';render();});
 }
+function installHoldOnDisplayOverrides(){
+  /* BBB HOLD ON DISPLAY OVERRIDES: retain legacy CSS key `ehh`, never show Ehh as a food verdict. */
+  if(typeof getRatingLabel==='function') getRatingLabel=function(rating){if(rating==='Green')return 'good';if(rating==='Red')return 'ugly';return 'hold on';};
+  if(typeof ratingPill==='function') ratingPill=function(value){const key=getRatingKey(value);const label=key==='good'?'good':key==='ugly'?'ugly':'hold on';return `<button class="rating-pill rating-${key}" data-action="rating-info" data-rating="${key}" type="button" aria-label="${label} rating explanation">${label}</button>`;};
+  if(typeof foodPanel==='function') foodPanel=function(icon,title,foods){const visible=title==='ehh'?'hold on':title;return `<article class="food-panel food-panel-${e(title)}"><div class="food-panel-title"><span class="icon">${icon}</span><h3>${e(visible)}</h3></div><ul>${foods.map(food=>`<li>${e(food)}</li>`).join('')}</ul></article>`;};
+  if(typeof infoToast==='function'){const original=infoToast;infoToast=function(){if(state.infoTopic==='rating-ehh')return `<div class="info-toast" role="status"><button data-action="close-info" type="button" aria-label="Close explanation">×</button><strong>hold on</strong><p>Hold On is a decision state for mixed, conditional, incomplete, or uncertain information. It is not a medium numeric risk score and does not mean a small portion is automatically safe.</p></div>`;return original();};}
+}
+
 function install(){
   if(typeof BBBScanner==='undefined'||typeof scanScreen!=='function'||typeof bindEvents!=='function')return setTimeout(install,50);
+  installHoldOnDisplayOverrides();
   const originalScanScreen=scanScreen;scanScreen=function(){return resultView()||originalScanScreen();};
   const originalHistory=typeof historyScreen==='function'?historyScreen:null;if(originalHistory)historyScreen=function(){const base=originalHistory();return base.replace(/<\/div>\s*$/,'')+decisionsPanel()+'</div>';};
   const originalBind=bindEvents;bindEvents=function(){originalBind();bindAdapterEvents();};

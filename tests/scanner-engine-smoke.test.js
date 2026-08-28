@@ -39,5 +39,7 @@ assert.equal(verdict(rec('Pepperoni Pizza', 'wheat flour, tomato sauce, pepperon
 assert.equal(verdict(rec('Pepperoni Pizza', 'wheat flour, tomato sauce, pepperoni, garlic powder, cheese'), 'flare'), 'UGLY');
 assert.equal(verdict(rec('Rice', 'rice', '')), 'HOLD ON');
 assert.equal(verdict(rec('Jasmine Rice', 'jasmine rice'), 'normal', { status: 'not_for_me', date: '2026-08-01T00:00:00Z', reason: 'reaction' }), 'UGLY');
+assert.equal(verdict(rec('Almond Snack', 'almonds, salt')), 'UGLY');
+assert.equal(verdict(rec('Onion Roll', 'wheat flour, onions, salt')), 'UGLY');
 
-console.log('PASS: 15 locked scanner/rules regression tests');
+console.log('PASS: 17 locked scanner/rules regression tests');

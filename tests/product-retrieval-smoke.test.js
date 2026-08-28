@@ -10,12 +10,13 @@ function usda(code='222'){return {ok:true,foods:[{gtinUpc:code,description:'USDA
     const f=async url=>{calls.push(url);return response(true,offComplete('111'));};
     const r=await E.retrieveProduct('111',{storage:s,fetchFn:f});
     assert.equal(r.sources[0].name,'Open Food Facts');assert.equal(r.retrieval.attempts.length,1);assert.equal(calls.length,1);
+    const offSodium=E.normalizeOFF({code:'salt',product_name:'Salt Test',ingredients_text:'salt',serving_size:'1 g',nutriments:{'sodium_100g':1}},'salt');assert.equal(offSodium.nutrition.per100g.sodium,1000);
   }
   {
     const s=new MemoryStorage();let n=0;
     const f=async url=>{n++;if(url.includes('openfoodfacts'))return response(true,{status:1,product:{code:'222',product_name:'USDA Chicken',brands:'Test',ingredients_text:'chicken breast, water, salt'}});return response(true,usda('222'));};
     const r=await E.retrieveProduct('222',{storage:s,fetchFn:f,usdaWorker:'https://worker.test'});
-    assert.equal(n,2);assert.equal(r.serving.size,'100 g');assert.equal(r.sources.length,2);assert.equal(r.completeness.essentialComplete,true);
+    assert.equal(n,2);assert.equal(r.serving.size,'1 serving (100 g)');assert.equal(r.serving.servingsPerContainer,'');assert.equal(r.sources.length,2);assert.equal(r.completeness.essentialComplete,true);
   }
   {
     const s=new MemoryStorage();
