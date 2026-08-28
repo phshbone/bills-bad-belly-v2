@@ -31,7 +31,7 @@ async function lookup(page,code){await page.locator('#bbbBarcodeInput').fill(cod
       assert.strictEqual(await page.locator('.bbb-rule-pill').innerText(),'rules v1.5.1');
       await lookup(page,CODE);
       assert.strictEqual(await page.locator('.bbb-label').innerText(),'GOOD');
-      assert.ok((await page.locator('.bbb-live-result').innerText()).includes('Open Food Facts'));
+      assert.ok((await page.locator('.bbb-scanner-panel').innerText()).includes('Product facts retrieved from Open Food Facts.'),'visible status must identify Open Food Facts');
       assert.strictEqual(offCalls,1);assert.strictEqual(usdaCalls,0);
       await page.locator('[data-bbb-scan="decision"][data-status="not_for_me"]').click();
       await page.waitForFunction(()=>document.querySelector('.bbb-label')?.textContent==='UGLY');
@@ -51,8 +51,8 @@ async function lookup(page,code){await page.locator('#bbbBarcodeInput').fill(cod
       await page.route('https://world.openfoodfacts.org/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(incompleteOFF)}));
       await page.route('https://bad-belly-usda.phshbone.workers.dev/**',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(usdaComplete)}));
       await goScan(page);await lookup(page,'000111222333');
-      const text=await page.locator('.bbb-live-result').innerText();
-      assert.ok(text.includes('Open Food Facts + USDA fallback'),'combined source must be honest');
+      const panelText=await page.locator('.bbb-scanner-panel').innerText();
+      assert.ok(panelText.includes('Product facts retrieved from Open Food Facts + USDA fallback.'),'combined source must be honest and visible');
       assert.strictEqual(await page.locator('.bbb-label').innerText(),'GOOD');
       assert.deepStrictEqual(errors,[]);
       await context.close();
