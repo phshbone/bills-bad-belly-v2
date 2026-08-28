@@ -8,6 +8,7 @@ on:
       - bbb-scanner-core.js
       - bbb-scanner.js
       - tests/scanner-core.test.js
+      - tests/browser-smoke.js
       - .github/workflows/scanner-integrate.yml
 
 permissions:
@@ -36,13 +37,21 @@ jobs:
 
           core = Path('bbb-scanner-core.js')
           text = core.read_text(encoding='utf-8')
+
           old = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h));"
           new = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h)&&!(preparedPotato&&h.id==='potato_skin_starch'));"
           if old in text:
               text = text.replace(old, new, 1)
-              core.write_text(text, encoding='utf-8')
           elif new not in text:
               raise SystemExit('Expected scanner precedence anchor was not found; stop instead of silently patching the wrong code.')
+
+          missing_guard = "else if(record.completeness.missing.length){general='hold';reason='Product facts are incomplete: '+record.completeness.missing.join(', ')+'.';evidence.push({kind:'incomplete data',label:'missing '+record.completeness.missing.join(', '),reason:'Incomplete product facts remain Hold On rather than being treated as clear permission.'});}"
+          potato_anchor = "else if(preparedPotato){general='good';"
+          if missing_guard not in text:
+              if potato_anchor not in text:
+                  raise SystemExit('Expected completeness/preparation anchor was not found; stop instead of changing verdict semantics silently.')
+              text = text.replace(potato_anchor, missing_guard + "\n    " + potato_anchor, 1)
+          core.write_text(text, encoding='utf-8')
 
           page = Path('index.html')
           html = page.read_text(encoding='utf-8')
@@ -58,9 +67,33 @@ jobs:
         run: |
           node --check bbb-scanner-core.js
           node --check bbb-scanner.js
+          node --check tests/browser-smoke.js
 
       - name: Rules smoke tests
         run: node tests/scanner-core.test.js
+
+      - name: Verify live product sources are reachable
+        run: |
+          curl --fail --silent --show-error --location \
+            'https://world.openfoodfacts.org/api/v2/product/3017620422003.json?fields=product_name,ingredients_text,nutriments,serving_size' \
+            --output /tmp/off.json
+          node -e "const d=require('/tmp/off.json'); if(d.status!==1) throw new Error('Known OFF product was not found')"
+          curl --fail --silent --show-error --location \
+            'https://bad-belly-usda.phshbone.workers.dev/search?query=3017620422003&pageSize=1&mode=all' \
+            --output /tmp/usda.json
+          node -e "const d=require('/tmp/usda.json'); if(d.ok!==true) throw new Error('Protected USDA Worker did not return ok=true')"
+
+      - name: Install browser smoke runner
+        run: |
+          npm install --no-save playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Mobile and desktop browser smoke tests
+        run: |
+          python3 -m http.server 4173 >/tmp/bbb-http.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID || true' EXIT
+          node tests/browser-smoke.js
 
       - name: Verify integration invariants
         run: |
@@ -73,12 +106,12 @@ jobs:
 
       - name: Commit validated branch integration
         run: |
-          if git diff --quiet && git diff --cached --quiet && git ls-files --error-unmatch bbb-rules.json >/dev/null 2>&1; then
-            echo 'No generated integration changes to commit.'
-            exit 0
-          fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add index.html bbb-rules.json bbb-scanner-core.js
+          if git diff --cached --quiet; then
+            echo 'No generated integration changes to commit.'
+            exit 0
+          fi
           git commit -m 'Integrate validated scanner vertical slice'
           git push origin scanner-vertical-slice
