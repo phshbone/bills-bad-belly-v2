@@ -1,0 +1,84 @@
+name: Scanner vertical slice integration
+
+on:
+  push:
+    branches:
+      - scanner-vertical-slice
+    paths:
+      - bbb-scanner-core.js
+      - bbb-scanner.js
+      - tests/scanner-core.test.js
+      - .github/workflows/scanner-integrate.yml
+
+permissions:
+  contents: write
+
+jobs:
+  integrate-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out integration branch
+        uses: actions/checkout@v4
+        with:
+          ref: scanner-vertical-slice
+
+      - name: Install the single authoritative rules source
+        run: |
+          curl --fail --silent --show-error --location \
+            https://raw.githubusercontent.com/phshbone/billstestpage/main/bbb-rules-v1.5.1.json \
+            --output bbb-rules.json
+          node -e "const r=require('./bbb-rules.json'); if(r.version!=='1.5.1') throw new Error('Wrong rules version: '+r.version)"
+
+      - name: Apply locked integration hooks
+        shell: python
+        run: |
+          from pathlib import Path
+
+          core = Path('bbb-scanner-core.js')
+          text = core.read_text(encoding='utf-8')
+          old = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h));"
+          new = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h)&&!(preparedPotato&&h.id==='potato_skin_starch'));"
+          if old in text:
+              text = text.replace(old, new, 1)
+              core.write_text(text, encoding='utf-8')
+          elif new not in text:
+              raise SystemExit('Expected scanner precedence anchor was not found; stop instead of silently patching the wrong code.')
+
+          page = Path('index.html')
+          html = page.read_text(encoding='utf-8')
+          marker = '<!-- BBB_SCANNER_VERTICAL_SLICE -->'
+          hook = '''\n<!-- BBB_SCANNER_VERTICAL_SLICE -->\n<script src="./bbb-scanner-core.js"></script>\n<script src="./bbb-scanner.js"></script>\n'''
+          if marker not in html:
+              if '</body>' not in html:
+                  raise SystemExit('index.html has no closing body tag; LOCK must be reopened.')
+              html = html.replace('</body>', hook + '</body>', 1)
+              page.write_text(html, encoding='utf-8')
+
+      - name: Syntax checks
+        run: |
+          node --check bbb-scanner-core.js
+          node --check bbb-scanner.js
+
+      - name: Rules smoke tests
+        run: node tests/scanner-core.test.js
+
+      - name: Verify integration invariants
+        run: |
+          test "$(grep -c 'BBB_SCANNER_VERTICAL_SLICE' index.html)" -eq 1
+          test "$(grep -c 'bbb-scanner-core.js' index.html)" -eq 1
+          test "$(grep -c 'bbb-scanner.js' index.html)" -eq 1
+          test "$(node -p "require('./bbb-rules.json').version")" = "1.5.1"
+          ! grep -q 'bbb-rules-v1.5.1.json' index.html
+          ! grep -q 'bbb-rules.json' index.html
+
+      - name: Commit validated branch integration
+        run: |
+          if git diff --quiet && git diff --cached --quiet && git ls-files --error-unmatch bbb-rules.json >/dev/null 2>&1; then
+            echo 'No generated integration changes to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html bbb-rules.json bbb-scanner-core.js
+          git commit -m 'Integrate validated scanner vertical slice'
+          git push origin scanner-vertical-slice
