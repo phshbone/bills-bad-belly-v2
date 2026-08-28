@@ -68,6 +68,13 @@ jobs:
               scanner_text = scanner_text.replace(old_fallback, new_fallback, 1)
           elif new_fallback not in scanner_text:
               raise SystemExit('OFF fallback anchor changed; stop rather than silently changing retrieval semantics.')
+
+          old_overlay = ".bbb-barcode-overlay{position:fixed;inset:0;z-index:20000;background:#080b10;display:none;grid-template-rows:1fr auto}"
+          new_overlay = ".bbb-barcode-overlay{position:fixed;inset:0;z-index:2147483000!important;isolation:isolate;background:#080b10;display:none;grid-template-rows:1fr auto;pointer-events:auto}"
+          if old_overlay in scanner_text:
+              scanner_text = scanner_text.replace(old_overlay, new_overlay, 1)
+          elif new_overlay not in scanner_text:
+              raise SystemExit('Barcode overlay CSS anchor changed; stop rather than risking blocked camera controls.')
           scanner.write_text(scanner_text, encoding='utf-8')
 
           page = Path('index.html')
@@ -140,6 +147,7 @@ jobs:
           test "$(grep -c 'Core.completeness(off).missing.length' bbb-scanner.js)" -eq 1
           ! grep -q 'Core.completeness(off).essentialMissing.length' bbb-scanner.js
           grep -q "v===null||v===undefined||v===''" bbb-scanner-core.js
+          grep -q 'z-index:2147483000!important' bbb-scanner.js
           test "$(node -p "require('./bbb-rules.json').version")" = "1.5.1"
           ! grep -q 'bbb-rules-v1.5.1.json' index.html
           ! grep -q 'bbb-rules.json' index.html
