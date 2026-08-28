@@ -57,16 +57,23 @@ jobs:
           html = page.read_text(encoding='utf-8')
           original_html = html
 
-          # The old v2 Scan action automatically opens the ingredient/OCR camera 80 ms
-          # after entering the Scan screen. In the integrated path that camera sits on
-          # top of the barcode controls and blocks them. Keep the legacy camera itself,
-          # but suppress only this automatic takeover when the scanner panel is present.
-          old_auto = "if (cameraOpeningFromScanTab) {"
-          guarded_auto = "if (cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')) {"
-          if old_auto in html:
-              html = html.replace(old_auto, guarded_auto, 1)
-          elif guarded_auto not in html:
-              raise SystemExit('Legacy camera auto-open anchor changed; stop rather than hiding an unrelated overlay.')
+          # The legacy v2 camera has two automatic entry points: bottom-nav Scan and
+          # the home/action Scan path. In the cohesive scanner build the barcode panel
+          # is the primary Scan surface, so suppress only those automatic takeovers.
+          # Explicit legacy OCR/photo controls (open-camera/new-camera-scan/etc.) remain.
+          old_nav_auto = "if (btn.dataset.tab === 'scan') setTimeout(openCameraOverlay, 80);"
+          guarded_nav_auto = "if (btn.dataset.tab === 'scan' && !document.querySelector('.bbb-scanner-panel')) setTimeout(openCameraOverlay, 80);"
+          if old_nav_auto in html:
+              html = html.replace(old_nav_auto, guarded_nav_auto, 1)
+          elif guarded_nav_auto not in html:
+              raise SystemExit('Legacy bottom-nav camera auto-open anchor changed; stop rather than patching unrelated code.')
+
+          old_action_auto = "if (cameraOpeningFromScanTab) {"
+          guarded_action_auto = "if (cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')) {"
+          if old_action_auto in html:
+              html = html.replace(old_action_auto, guarded_action_auto, 1)
+          elif guarded_action_auto not in html:
+              raise SystemExit('Legacy action camera auto-open anchor changed; stop rather than patching unrelated code.')
 
           marker = '<!-- BBB_SCANNER_VERTICAL_SLICE -->'
           hook = '''\n<!-- BBB_SCANNER_VERTICAL_SLICE -->\n<script src="./bbb-scanner-core.js"></script>\n<script src="./bbb-scanner.js"></script>\n'''
@@ -116,6 +123,7 @@ jobs:
           test "$(grep -c 'bbb-scanner-core.js' index.html)" -eq 1
           test "$(grep -c 'bbb-scanner.js' index.html)" -eq 1
           test "$(grep -c "cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')" index.html)" -eq 1
+          test "$(grep -c "btn.dataset.tab === 'scan' && !document.querySelector('.bbb-scanner-panel')" index.html)" -eq 1
           test "$(node -p "require('./bbb-rules.json').version")" = "1.5.1"
           ! grep -q 'bbb-rules-v1.5.1.json' index.html
           ! grep -q 'bbb-rules.json' index.html
