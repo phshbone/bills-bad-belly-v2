@@ -3772,7 +3772,7 @@ function bindEvents() {
       state.modeInfoOpen = false;
       state.infoTopic = '';
       render();
-      if (btn.dataset.tab === 'scan') setTimeout(openCameraOverlay, 80);
+      if (btn.dataset.tab === 'scan' && !document.querySelector('.bbb-scanner-panel')) setTimeout(openCameraOverlay, 80);
     };
   });
 
@@ -3910,7 +3910,7 @@ function bindEvents() {
       if (action === 'save-food-note') { state.savedNotice = 'Personal food notes come next.'; }
 
       render();
-      if (cameraOpeningFromScanTab) {
+      if (cameraOpeningFromScanTab && !document.querySelector('.bbb-scanner-panel')) {
         cameraOpeningFromScanTab = false;
         setTimeout(openCameraOverlay, 80);
       }

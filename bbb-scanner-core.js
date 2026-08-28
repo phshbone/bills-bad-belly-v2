@@ -10,7 +10,7 @@
 
   function clean(v){return v==null?'':String(v).trim();}
   function lower(v){return clean(v).toLowerCase().replace(/[’']/g,"'").replace(/\s+/g,' ');}
-  function num(v){const n=Number(v);return Number.isFinite(n)?n:null;}
+  function num(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}
   function isoDate(v){if(!v)return null;try{return new Date(v).toISOString();}catch(_){return null;}}
   function first(){for(const v of arguments){if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return null;}
   function containsAlias(hay,alias){
@@ -230,6 +230,7 @@
     else if(strongPrep){general='ugly';reason='The preparation creates a clear Don’t condition: '+strongPrep.label+'.';evidence.push({kind:'preparation',label:strongPrep.label,reason:strongPrep.reason});}
     else if(onionPieces){general='ugly';reason='Visible or dehydrated onion pieces create a stronger physical/ingredient-form warning.';evidence.push({kind:'ingredient form',label:onionPieces.label,reason:onionPieces.reason});}
     else if(record.completeness.essentialMissing.length){general='hold';reason='Essential product facts are missing: '+record.completeness.essentialMissing.join(' and ')+'.';evidence.push({kind:'incomplete data',label:'missing '+record.completeness.essentialMissing.join(', '),reason:'The app will not invent certainty when essential label facts are absent.'});}
+    else if(record.completeness.missing.length){general='hold';reason='Product facts are incomplete: '+record.completeness.missing.join(', ')+'.';evidence.push({kind:'incomplete data',label:'missing '+record.completeness.missing.join(', '),reason:'Incomplete product facts remain Hold On rather than being treated as clear permission.'});}
     else if(preparedPotato){general='good';reason='The potato is explicitly peeled and soft/pureed, removing the structural skin warning and establishing the gentler preparation.';evidence.push({kind:'preparation',label:'peeled + soft potato',reason:'Preparation is established rather than assumed.'});}
     else if(mainStatus==='ugly'&&isClearUglyMain(main)){general='ugly';reason='The main food or construction matches a clear structural/preparation Don’t pattern: '+main.label+'.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
     else if(mainStatus==='good'){general='good';reason='The main food matches a clear Do pattern and no structural Don’t was identified.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
