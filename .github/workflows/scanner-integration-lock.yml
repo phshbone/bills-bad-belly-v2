@@ -32,6 +32,9 @@ jobs:
       - name: Retrieval and cache smoke tests
         run: node tests/product-retrieval-smoke.test.js
 
+      - name: Personal memory smoke tests
+        run: node tests/personal-memory-smoke.test.js
+
       - name: Wire scanner scripts into v2 index
         run: |
           python - <<'PY'
