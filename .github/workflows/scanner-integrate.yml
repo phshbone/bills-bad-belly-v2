@@ -38,6 +38,13 @@ jobs:
           core = Path('bbb-scanner-core.js')
           text = core.read_text(encoding='utf-8')
 
+          old_num = "function num(v){const n=Number(v);return Number.isFinite(n)?n:null;}"
+          new_num = "function num(v){if(v===null||v===undefined||v==='')return null;const n=Number(v);return Number.isFinite(n)?n:null;}"
+          if old_num in text:
+              text = text.replace(old_num, new_num, 1)
+          elif new_num not in text:
+              raise SystemExit('Numeric normalization anchor changed; stop rather than guessing how missing nutrients are represented.')
+
           old = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h));"
           new = "const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h)&&!(preparedPotato&&h.id==='potato_skin_starch'));"
           if old in text:
@@ -132,6 +139,7 @@ jobs:
           test "$(grep -c "btn.dataset.tab === 'scan' && !document.querySelector('.bbb-scanner-panel')" index.html)" -eq 1
           test "$(grep -c 'Core.completeness(off).missing.length' bbb-scanner.js)" -eq 1
           ! grep -q 'Core.completeness(off).essentialMissing.length' bbb-scanner.js
+          grep -q "v===null||v===undefined||v===''" bbb-scanner-core.js
           test "$(node -p "require('./bbb-rules.json').version")" = "1.5.1"
           ! grep -q 'bbb-rules-v1.5.1.json' index.html
           ! grep -q 'bbb-rules.json' index.html
