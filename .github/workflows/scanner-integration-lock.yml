@@ -59,6 +59,19 @@ jobs:
           print('PASS: v2 adapter points only to rules v1.5.2')
           PY
 
+      - name: Package isolated branch for browser smoke test
+        uses: actions/upload-artifact@v4
+        with:
+          name: scanner-integration-lock-build
+          path: |
+            index.html
+            bbb header-transparent.png
+            bbb-rules-v1.5.2.json
+            bbb-scanner-engine.js
+            bbb-v2-scanner-adapter.js
+            tests/
+          if-no-files-found: error
+
       - name: Commit branch wiring if changed
         run: |
           if git diff --quiet -- index.html; then
