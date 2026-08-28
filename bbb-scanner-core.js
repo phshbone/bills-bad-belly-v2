@@ -13,8 +13,6 @@
   function num(v){const n=Number(v);return Number.isFinite(n)?n:null;}
   function isoDate(v){if(!v)return null;try{return new Date(v).toISOString();}catch(_){return null;}}
   function first(){for(const v of arguments){if(v!==undefined&&v!==null&&String(v).trim()!=='')return v;}return null;}
-  function uniq(arr){return [...new Set((arr||[]).filter(Boolean))];}
-  function escRe(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
   function containsAlias(hay,alias){
     const a=lower(alias); if(!a)return false;
     const h=' '+lower(hay).replace(/[^a-z0-9%+\- ]+/g,' ')+' ';
@@ -60,8 +58,7 @@
       brand:clean(product.brands),
       category:clean(product.categories),
       ingredientsText:clean(first(product.ingredients_text,product.ingredients_text_en)),
-      ingredientFamilies:[], ingredientForms:[],
-      nutrition,
+      ingredientFamilies:[], ingredientForms:[], nutrition,
       serving:{size:servingSize||null,grams:servingGrams,servingsPerContainer,explicitServingsPerContainer:false},
       packageQuantity:quantity||null,
       source:{name:'Open Food Facts',type:'open_food_facts',retrievedAt:new Date().toISOString(),updatedAt:product.last_modified_t?new Date(Number(product.last_modified_t)*1000).toISOString():null},
@@ -194,11 +191,11 @@
     if(status==='usually_gentle')return 'good';
     return 'hold';
   }
-
   function isStructuralFamily(h){return ['whole_corn','whole_seeds','whole_nuts','legumes','coconut_rough'].includes(h.id)||(h.severity==='high'&&['roughage','hull','skin','seed'].some(w=>lower(h.label).includes(w)));}
   function isStrongPreparation(p){return ['skin_on','fried_greasy_prep'].includes(p.id)||(p.effect==='risk'&&p.id==='raw_crisp'&&lower(p.label).includes('skin'));}
   function isOnionPieces(h){return h.id==='whole_onion'&&(/dehydrated|piece|chopped|diced|sliced|raw/.test(lower(h.alias)));}
   function isMinorSeasoning(h){return h.role==='minor'&&['onion_powder','garlic_family','mild_spices'].includes(h.id);}
+  function isClearUglyMain(main){return ['fried_greasy_food','roughage_hulls_seeds','legume_dish'].includes(main.id);}
 
   function nutritionNotes(record,mode,rules){
     const notes=[]; const n=record.nutrition||{};
@@ -225,28 +222,31 @@
     const onionPieces=families.find(isOnionPieces);
     const strongPrep=prep.find(isStrongPreparation);
     const mainStatus=statusToLabel(mode==='Flare'?main.flare:main.normal);
+    const peeled=prep.some(p=>p.id==='peeled_skinless');
+    const soft=prep.some(p=>p.id==='soft_cooked'||p.id==='pureed_blended');
+    const preparedPotato=main.id==='potato_skin_starch'&&peeled&&soft;
 
     if(structural){general='ugly';reason='A clear structural Don’t was found: '+structural.label+'.';evidence.push({kind:'physical structure',label:structural.label,reason:structural.reason});}
     else if(strongPrep){general='ugly';reason='The preparation creates a clear Don’t condition: '+strongPrep.label+'.';evidence.push({kind:'preparation',label:strongPrep.label,reason:strongPrep.reason});}
     else if(onionPieces){general='ugly';reason='Visible or dehydrated onion pieces create a stronger physical/ingredient-form warning.';evidence.push({kind:'ingredient form',label:onionPieces.label,reason:onionPieces.reason});}
     else if(record.completeness.essentialMissing.length){general='hold';reason='Essential product facts are missing: '+record.completeness.essentialMissing.join(' and ')+'.';evidence.push({kind:'incomplete data',label:'missing '+record.completeness.essentialMissing.join(', '),reason:'The app will not invent certainty when essential label facts are absent.'});}
-    else if(mainStatus==='ugly'){general='ugly';reason='The main food or construction matches a clear Don’t pattern: '+main.label+'.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
+    else if(preparedPotato){general='good';reason='The potato is explicitly peeled and soft/pureed, removing the structural skin warning and establishing the gentler preparation.';evidence.push({kind:'preparation',label:'peeled + soft potato',reason:'Preparation is established rather than assumed.'});}
+    else if(mainStatus==='ugly'&&isClearUglyMain(main)){general='ugly';reason='The main food or construction matches a clear structural/preparation Don’t pattern: '+main.label+'.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
     else if(mainStatus==='good'){general='good';reason='The main food matches a clear Do pattern and no structural Don’t was identified.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
+    else if(mainStatus==='ugly'){general='hold';reason='The main food has a stronger caution in the rules, but it is not being treated as a structural hard stop without the required form/preparation evidence.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
 
     const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h));
-    const materialConditional=conditional.find(h=>statusToLabel(mode==='Flare'?h.flare:h.normal)==='ugly'&&!isMinorSeasoning(h));
+    const strongerConditional=conditional.find(h=>statusToLabel(mode==='Flare'?h.flare:h.normal)==='ugly');
     const holdConditional=conditional.find(h=>statusToLabel(mode==='Flare'?h.flare:h.normal)==='hold');
-    if(general!=='ugly'&&materialConditional){general='ugly';reason='A stronger non-structural ingredient warning applies: '+materialConditional.label+'.';evidence.push({kind:'ingredient',label:materialConditional.label,reason:materialConditional.reason});}
+    if(general!=='ugly'&&strongerConditional){general='hold';reason='A non-structural ingredient concern ('+strongerConditional.label+') makes this conditional, not an automatic structural Ugly.';evidence.push({kind:'ingredient concern',label:strongerConditional.label,reason:strongerConditional.reason});}
     else if(general==='good'&&holdConditional){general='hold';reason='The main food is favorable, but '+holdConditional.label+' makes this conditional rather than clearly Good.';evidence.push({kind:'ingredient form',label:holdConditional.label,reason:holdConditional.reason});}
     else if(general==='good'&&conditional.some(isMinorSeasoning)){
-      general='hold'; const h=conditional.find(isMinorSeasoning);reason='The main food is favorable, but a minor seasoning ('+h.label+') is a personal/dose-sensitive question, not an automatic Ugly.';evidence.push({kind:'minor seasoning',label:h.label,reason:h.reason});
+      const hit=conditional.find(isMinorSeasoning);general='hold';reason='The main food is favorable, but a minor seasoning ('+hit.label+') is a personal/dose-sensitive question, not an automatic Ugly.';evidence.push({kind:'minor seasoning',label:hit.label,reason:hit.reason});
     }
 
     const nNotes=nutritionNotes(record,mode,rules);
     for(const n of nNotes)evidence.push({kind:'nutrition',label:n.id,reason:n.reason});
-    // Nutrition can tighten genuinely dose-sensitive uncertainty, but never downgrades a structural/personal stop.
-    if(general==='good'&&nNotes.some(n=>n.label==='hold')){general='hold';reason='The food/form is favorable, but a dose-sensitive nutrition factor makes this conditional.';}
-    if(general!=='ugly'&&nNotes.some(n=>n.label==='ugly')){general='hold';reason='A dose-sensitive nutrition factor deserves caution; it does not create portion-based permission or a structural Don’t.';}
+    if(general==='good'&&nNotes.some(n=>n.label==='hold'||n.label==='ugly')){general='hold';reason='The food/form is favorable, but a dose-sensitive nutrition factor makes this conditional.';}
 
     let finalLabel=general; let personalApplied=false;
     if(personal&&personal.status==='not_for_me'){finalLabel='ugly';personalApplied=true;reason='Personal hard stop: you previously marked this Not for Me.';evidence.unshift({kind:'personal history',label:'Not for me',reason:personal.reason||'Previously marked Not for Me.'});}
