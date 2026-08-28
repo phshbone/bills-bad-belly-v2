@@ -18,6 +18,9 @@ jobs:
           ref: scanner-integration-lock
           fetch-depth: 0
 
+      - name: Apply idempotent scanner refinements
+        run: python tools/refine_scanner_files.py
+
       - name: Syntax checks
         run: |
           node --check bbb-scanner-engine.js
@@ -53,10 +56,13 @@ jobs:
           from pathlib import Path
           index = Path('index.html').read_text(encoding='utf-8')
           adapter = Path('bbb-v2-scanner-adapter.js').read_text(encoding='utf-8')
+          engine = Path('bbb-scanner-engine.js').read_text(encoding='utf-8')
           assert 'bbb-rules-v1.5.2.json' in adapter
           assert 'bbb-rules.json' not in adapter
+          assert 'bbb-rules.json' not in engine
           assert index.count('bbb-v2-scanner-adapter.js') == 1
-          print('PASS: v2 adapter points only to rules v1.5.2')
+          assert 'BBB HOLD ON DISPLAY OVERRIDES' in adapter
+          print('PASS: v2 adapter points only to rules v1.5.2 and shows HOLD ON')
           PY
 
       - name: Package isolated branch for browser smoke test
@@ -72,14 +78,14 @@ jobs:
             tests/
           if-no-files-found: error
 
-      - name: Commit branch wiring if changed
+      - name: Commit validated branch refinements if changed
         run: |
-          if git diff --quiet -- index.html; then
-            echo "No wiring change needed"
+          if git diff --quiet; then
+            echo "No source change needed"
             exit 0
           fi
           git config user.name "bbb-scanner-build"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add index.html
-          git commit -m "Wire locked scanner integration into v2"
+          git add index.html bbb-rules-v1.5.2.json bbb-scanner-engine.js bbb-v2-scanner-adapter.js tests/ tools/refine_scanner_files.py .github/workflows/scanner-integration-lock.yml
+          git commit -m "Refine locked scanner data normalization and HOLD ON semantics"
           git push origin HEAD:scanner-integration-lock
