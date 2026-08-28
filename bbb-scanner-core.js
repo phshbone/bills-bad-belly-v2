@@ -235,7 +235,7 @@
     else if(mainStatus==='good'){general='good';reason='The main food matches a clear Do pattern and no structural Don’t was identified.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
     else if(mainStatus==='ugly'){general='hold';reason='The main food has a stronger caution in the rules, but it is not being treated as a structural hard stop without the required form/preparation evidence.';evidence.push({kind:'main food',label:main.label,reason:main.reason});}
 
-    const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h));
+    const conditional=families.filter(h=>!isStructuralFamily(h)&&!isOnionPieces(h)&&!(preparedPotato&&h.id==='potato_skin_starch'));
     const strongerConditional=conditional.find(h=>statusToLabel(mode==='Flare'?h.flare:h.normal)==='ugly');
     const holdConditional=conditional.find(h=>statusToLabel(mode==='Flare'?h.flare:h.normal)==='hold');
     if(general!=='ugly'&&strongerConditional){general='hold';reason='A non-structural ingredient concern ('+strongerConditional.label+') makes this conditional, not an automatic structural Ugly.';evidence.push({kind:'ingredient concern',label:strongerConditional.label,reason:strongerConditional.reason});}
