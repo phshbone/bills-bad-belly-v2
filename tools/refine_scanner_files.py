@@ -75,6 +75,81 @@ if 'BBB HOLD ON DISPLAY OVERRIDES' not in text:
     if old not in text:
         raise SystemExit('adapter: install body target not found')
     text = text.replace(old, new, 1)
+
+# BBB ORIENTATION-INDEPENDENT BARCODE PASS: keep the proven live decode path and
+# also inspect a throttled 90-degree rotation of the live frame. This lets a user
+# present either a portrait or landscape barcode without rotating a large package.
+if 'BBB ORIENTATION-INDEPENDENT BARCODE PASS' not in text:
+    text = text.replace(
+        "let liveBarcodeLock=false;\n",
+        "let liveBarcodeLock=false;\nlet rotatedBarcodeTimer=null;\nlet rotatedDecodeBusy=false;\n"
+    )
+    text = text.replace(
+        "  liveBarcodeControls=null;\n  const video=document.getElementById('cameraVideo');",
+        "  liveBarcodeControls=null;\n  if(rotatedBarcodeTimer){clearInterval(rotatedBarcodeTimer);rotatedBarcodeTimer=null;}\n  rotatedDecodeBusy=false;\n  const video=document.getElementById('cameraVideo');"
+    )
+    text = text.replace(
+        "  liveBarcodeLock=false;\n}\nasync function handleLiveBarcode(code){",
+        "}\nasync function handleLiveBarcode(code){"
+    )
+    open_marker = "async function openLiveBarcodeScanner(){\n"
+    helper = r'''/* BBB ORIENTATION-INDEPENDENT BARCODE PASS */
+function acceptLiveBarcode(result,controls){
+  if(!result||liveBarcodeLock)return;
+  const raw=result.getText?result.getText():String(result.text||result);
+  const code=String(raw||'').replace(/\D/g,'');
+  if(!code)return;
+  liveBarcodeLock=true;
+  try{controls?.stop();}catch(_){}
+  stopLiveBarcodeScanner();
+  handleLiveBarcode(code);
+}
+function startRotatedBarcodePass(video){
+  if(typeof ZXingBrowser==='undefined'||!video)return;
+  const rotatedReader=new ZXingBrowser.BrowserMultiFormatReader();
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d',{willReadFrequently:true});
+  if(!ctx)return;
+  rotatedBarcodeTimer=setInterval(async()=>{
+    if(liveBarcodeLock||rotatedDecodeBusy||!video.videoWidth||!video.videoHeight)return;
+    rotatedDecodeBusy=true;
+    try{
+      const sourceW=video.videoWidth,sourceH=video.videoHeight;
+      const maxSide=960,scale=Math.min(1,maxSide/Math.max(sourceW,sourceH));
+      const w=Math.max(1,Math.round(sourceW*scale)),h=Math.max(1,Math.round(sourceH*scale));
+      canvas.width=h;canvas.height=w;
+      ctx.save();ctx.clearRect(0,0,canvas.width,canvas.height);ctx.translate(h,0);ctx.rotate(Math.PI/2);ctx.drawImage(video,0,0,w,h);ctx.restore();
+      const result=await rotatedReader.decodeFromCanvas(canvas);
+      if(result&&!liveBarcodeLock)acceptLiveBarcode(result,null);
+    }catch(_){}finally{rotatedDecodeBusy=false;}
+  },350);
+}
+'''
+    if open_marker not in text:
+        raise SystemExit('adapter: live scanner open marker not found')
+    text = text.replace(open_marker, helper + open_marker, 1)
+    old_callback = r'''    const reader=new ZXingBrowser.BrowserMultiFormatReader();
+    const cb=(result,err,controls)=>{
+      if(result&&!liveBarcodeLock){
+        liveBarcodeLock=true;
+        const raw=result.getText?result.getText():String(result.text||result);
+        const code=String(raw||'').replace(/\D/g,'');
+        try{controls.stop();}catch(_){}
+        stopLiveBarcodeScanner();
+        if(code)handleLiveBarcode(code);
+      }
+    };
+    liveBarcodeControls=await reader.decodeFromConstraints({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}},video,cb);
+    if(hint)hint.textContent='Scanning… hold the barcode steady inside the frame.';'''
+    new_callback = r'''    const reader=new ZXingBrowser.BrowserMultiFormatReader();
+    const cb=(result,err,controls)=>{if(result)acceptLiveBarcode(result,controls);};
+    liveBarcodeControls=await reader.decodeFromConstraints({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}}},video,cb);
+    startRotatedBarcodePass(video);
+    if(hint)hint.textContent='Scanning… barcode can be horizontal or vertical.';'''
+    if old_callback not in text:
+        raise SystemExit('adapter: live scanner callback target not found')
+    text = text.replace(old_callback, new_callback, 1)
+
 adapter.write_text(text, encoding='utf-8')
 print('bbb-v2-scanner-adapter.js: refined')
 
